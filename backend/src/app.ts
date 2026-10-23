@@ -4,6 +4,7 @@ import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { authRouter } from "./routes/auth.routes.js";
+import { jobRouter } from "./routes/job.routes.js";
 
 const app = express();
 
@@ -18,10 +19,27 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/jobs", jobRouter);
+
+// Penanda yang dipakai express.json() saat body JSON tidak bisa di-parse.
+function isJsonParseError(error: unknown): boolean {
+  if (!(error instanceof SyntaxError)) return false;
+  // Cek properti type, bukan hanya instanceof SyntaxError, supaya SyntaxError
+  // lain di dalam aplikasi tidak salah dianggap kesalahan input klien.
+  const parseError = error as SyntaxError & { type?: string };
+  return parseError.type === "entity.parse.failed";
+}
 
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error("[error]", error);
   if (res.headersSent) return;
+
+  // Body JSON yang rusak adalah kesalahan klien, bukan kesalahan server.
+  if (isJsonParseError(error)) {
+    res.status(400).json({ message: "Format JSON tidak valid" });
+    return;
+  }
+
   res.status(500).json({ message: "Terjadi kesalahan pada server" });
 });
 
