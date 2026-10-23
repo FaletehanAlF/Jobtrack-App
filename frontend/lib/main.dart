@@ -1,121 +1,246 @@
 import 'package:flutter/material.dart';
 
+import 'models/user_model.dart';
+import 'pages/home_page.dart';
+import 'pages/login_page.dart';
+import 'pages/onboarding_screen.dart';
+import 'pages/register_page.dart';
+import 'services/auth_service.dart';
+
 void main() {
-  runApp(const MyApp());
+  runApp(const JobTrackApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class JobTrackApp extends StatelessWidget {
+  const JobTrackApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'JobTrack',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFFF7F9FB),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1F6FEB),
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      // Halaman pertama adalah "gerbang sesi": sebelum menampilkan
+      // onboarding, token tersimpan diperiksa lewat GET /auth/me.
+      // Pengguna dengan sesi aktif langsung dibawa ke halaman utama
+      // tanpa login ulang; pengguna lain tetap melihat onboarding.
+      home: const _SessionGate(),
+    );
+  }
+
+  static void _openLogin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
+  }
+
+  static void _openRegister(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterPage()),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+/// Gerbang sesi (persistent login).
+///
+/// Alur saat aplikasi dibuka:
+/// 1. Tayangkan indikator loading singkat agar onboarding tidak muncul
+///    sebentar lalu hilang.
+/// 2. Periksa token tersimpan lewat [AuthService.getCurrentUser]. Token
+///    diverifikasi server lewat `GET /auth/me`, bukan sekadar dilihat
+///    apakah stringnya ada di perangkat.
+/// 3. Token valid → halaman utama. Token tidak ada atau ditolak server
+///    (401, token ikut dihapus) → onboarding. Pemeriksaan gagal karena
+///    server tidak terjangkau → layar "Coba Lagi", karena token tidak
+///    boleh dianggap valid hanya karena stringnya tersimpan.
+///
+/// Pemeriksaan berjalan satu kali dari [initState]; satu-satunya cara
+/// memeriksa ulang adalah menekan tombol Coba Lagi. Token tidak pernah
+/// ditampilkan maupun dicatat ke log.
+class _SessionGate extends StatefulWidget {
+  const _SessionGate();
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<_SessionGate> createState() => _SessionGateState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _SessionGateState extends State<_SessionGate> {
+  final _authService = AuthService();
 
-  void _incrementCounter() {
+  /// Berapa kali pemeriksaan dimulai. Dipakai untuk membuang hasil
+  /// pemeriksaan lama yang selesai terlambat (mis. setelah Coba Lagi),
+  /// supaya hasil basi tidak mengarahkan pengguna ke halaman yang salah.
+  int _attempt = 0;
+
+  /// True selama status sesi masih diperiksa.
+  bool _checking = true;
+
+  /// Pesan error untuk layar Coba Lagi. Null berarti layar itu tidak tampil.
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSession();
+  }
+
+  /// Memeriksa sesi satu kali.
+  ///
+  /// Dipanggil dari initState (sekali per start aplikasi) dan dari tombol
+  /// Coba Lagi — tidak pernah dipanggil berulang di belakang layar.
+  Future<void> _checkSession() async {
+    final attempt = ++_attempt;
+
+    try {
+      // Batas 10 detik: server yang "menggantung" tidak boleh membuat
+      // pengguna menatap loading tanpa ujung. Kegagalan apa pun jatuh ke
+      // catch di bawah dan tampil di layar Coba Lagi.
+      final user = await _authService
+          .getCurrentUser()
+          .timeout(const Duration(seconds: 10));
+
+      // mounted: gerbang bisa sudah tidak ada (mis. pengguna keluar aplikasi).
+      // attempt: hasil ini basi bila pengguna sudah memicu pemeriksaan baru.
+      if (!mounted || attempt != _attempt) return;
+
+      if (user != null) {
+        _openHome(user);
+      } else {
+        _openOnboarding();
+      }
+    } catch (error) {
+      if (!mounted || attempt != _attempt) return;
+
+      setState(() {
+        _checking = false;
+        _errorMessage = error.toString();
+      });
+    }
+  }
+
+  /// Menjalankan ulang pemeriksaan atas permintaan pengguna.
+  void _retry() {
+    if (_checking) return;
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _checking = true;
+      _errorMessage = null;
     });
+
+    _checkSession();
+  }
+
+  /// Halaman utama. pushAndRemoveUntil menghapus gerbang dari riwayat agar
+  /// tombol Back tidak mengembalikan pengguna ke layar pemeriksaan.
+  void _openHome(UserModel user) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => HomePage(user: user)),
+      (route) => false,
+    );
+  }
+
+  /// Tidak ada sesi: tampilkan onboarding dengan hook yang sama seperti
+  /// sebelumnya. Hook memakai context milik rute onboarding (routeContext),
+  /// bukan context gerbang yang sudah dibuang, agar tetap sah saat tombol
+  /// ditekan di kemudian hari.
+  void _openOnboarding() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (routeContext) => OnboardingScreen(
+          onLogin: () => JobTrackApp._openLogin(routeContext),
+          onSignUp: () => JobTrackApp._openRegister(routeContext),
+        ),
+      ),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    // Pemeriksaan berjalan: hanya indikator, tanpa halaman lain yang
+    // muncul sebentar di belakangnya.
+    if (_checking) {
+      return const Scaffold(
+        backgroundColor: JobTrackColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Pemeriksaan gagal (mis. backend belum berjalan). Token tidak dianggap
+    // valid hanya karena stringnya tersimpan, jadi pengguna diminta mencoba
+    // lagi, bukan langsung dibawa ke halaman utama atau onboarding.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      backgroundColor: JobTrackColors.background,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(
+                    Icons.cloud_off_outlined,
+                    size: 56,
+                    color: JobTrackColors.navyMuted,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Gagal memeriksa sesi',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: JobTrackColors.navy,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _errorMessage ?? 'Terjadi kesalahan yang tidak diketahui.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.55,
+                      color: JobTrackColors.navyMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _retry,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: JobTrackColors.blue,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      child: const Text('Coba Lagi'),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
