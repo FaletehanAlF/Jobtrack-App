@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'login_page.dart';
-import 'onboarding_screen.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../theme/jobtrack_theme.dart';
 import '../utils/validators.dart';
+import '../widgets/auth_components.dart';
 
 /// Halaman pendaftaran akun baru.
 ///
@@ -32,6 +34,9 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscureConfirmPassword = true;
   bool _loading = false;
 
+  /// Pesan gagal pendaftaran, ditampilkan sebagai banner di atas tombol.
+  String? _errorMessage;
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -45,7 +50,10 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_loading) return;
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
 
     try {
       final user = await _authService.register(
@@ -79,212 +87,165 @@ class _RegisterPageState extends State<RegisterPage> {
     } catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString()),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      setState(() => _errorMessage = _messageFor(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  /// Mengubah error menjadi kalimat yang bisa dibaca pengguna.
+  ///
+  /// [ApiException] membawa pesan dari server (mis. "Email sudah terdaftar").
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+    return 'Terjadi kesalahan. Coba lagi.';
+  }
+
+  void _openLogin() {
+    if (_loading) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: JobTrackColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: JobTrackColors.navy),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight:
-                  MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.vertical -
-                  kToolbarHeight,
+    final errorMessage = _errorMessage;
+
+    return AuthPageScaffold(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AuthHeader(
+              title: 'Buat Akun JobTrack',
+              subtitle: 'Mulai catat dan pantau lamaran kerjamu.',
+              logoSize: 68,
             ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 16,
+            const SizedBox(height: 28),
+
+            // Username, bukan "Full Name": backend menyimpan `username`
+            // dengan aturan 3–50 karakter, jadi labelnya mengikuti data
+            // yang benar-benar dikirim.
+            TextFormField(
+              controller: _usernameController,
+              autocorrect: false,
+              textInputAction: TextInputAction.next,
+              validator: Validators.username,
+              style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
+              decoration: authFieldDecoration(
+                label: 'Username',
+                hint: 'Minimal 3 karakter',
+                prefixIcon: const AuthFieldIcon(Icons.person_outline_rounded),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              textInputAction: TextInputAction.next,
+              validator: Validators.email,
+              style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
+              decoration: authFieldDecoration(
+                label: 'Email',
+                hint: 'nama@email.com',
+                prefixIcon: const AuthFieldIcon(Icons.mail_outline_rounded),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.next,
+              // Mengetik ulang password harus memvalidasi konfirmasi juga,
+              // karena pesan "tidak sama" bergantung pada nilai ini.
+              onChanged: (_) => setState(() {}),
+              validator: Validators.password,
+              style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
+              decoration: authFieldDecoration(
+                label: 'Password',
+                hint: 'Minimal 8 karakter',
+                prefixIcon: const AuthFieldIcon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  tooltip: _obscurePassword
+                      ? 'Tampilkan password'
+                      : 'Sembunyikan password',
+                  onPressed: () => setState(
+                    () => _obscurePassword = !_obscurePassword,
                   ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Daftar',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: JobTrackColors.navy,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Buat akun baru untuk mulai melacak peluang karier.',
-                          style: TextStyle(
-                            fontSize: 15,
-                            height: 1.55,
-                            color: JobTrackColors.navyMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        TextFormField(
-                          controller: _usernameController,
-                          autocorrect: false,
-                          textInputAction: TextInputAction.next,
-                          validator: Validators.username,
-                          decoration: const InputDecoration(
-                            labelText: 'Username',
-                            prefixIcon: Icon(Icons.person_outline),
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          autocorrect: false,
-                          textInputAction: TextInputAction.next,
-                          validator: Validators.email,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined),
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          autocorrect: false,
-                          textInputAction: TextInputAction.next,
-                          onChanged: (_) => setState(() {}),
-                          validator: Validators.password,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
-                              ),
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _confirmPasswordController,
-                          obscureText: _obscureConfirmPassword,
-                          autocorrect: false,
-                          textInputAction: TextInputAction.done,
-                          onFieldSubmitted: (_) => _register(),
-                          validator: (value) => Validators.confirmPassword(
-                            value,
-                            _passwordController.text,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Konfirmasi Password',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              onPressed: () => setState(
-                                () => _obscureConfirmPassword =
-                                    !_obscureConfirmPassword,
-                              ),
-                              icon: Icon(
-                                _obscureConfirmPassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _loading ? null : _register,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: JobTrackColors.blue,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: const Color(
-                                0xFFB9C6D3,
-                              ),
-                              disabledForegroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            child: _loading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Daftar'),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'Sudah punya akun?',
-                              style: TextStyle(
-                                color: JobTrackColors.navyMuted,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: _loading
-                                  ? null
-                                  : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const LoginPage(),
-                                      ),
-                                    ),
-                              child: const Text(
-                                'Masuk',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: JobTrackColors.blue,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 22,
+                    color: JobTrackColors.navyMuted,
                   ),
                 ),
               ),
             ),
-          ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _confirmPasswordController,
+              obscureText: _obscureConfirmPassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _register(),
+              validator: (value) => Validators.confirmPassword(
+                value,
+                _passwordController.text,
+              ),
+              style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
+              decoration: authFieldDecoration(
+                label: 'Konfirmasi Password',
+                hint: 'Ulangi password',
+                prefixIcon: const AuthFieldIcon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  tooltip: _obscureConfirmPassword
+                      ? 'Tampilkan password'
+                      : 'Sembunyikan password',
+                  onPressed: () => setState(
+                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                  ),
+                  icon: Icon(
+                    _obscureConfirmPassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 22,
+                    color: JobTrackColors.navyMuted,
+                  ),
+                ),
+              ),
+            ),
+
+            if (errorMessage != null) ...[
+              const SizedBox(height: 16),
+              AuthErrorBanner(message: errorMessage),
+            ],
+
+            const SizedBox(height: 24),
+
+            PrimaryButton(
+              label: 'Buat Akun',
+              loading: _loading,
+              onPressed: _register,
+            ),
+            const SizedBox(height: 12),
+            AuthLinkRow(
+              question: 'Sudah punya akun?',
+              action: 'Masuk',
+              onPressed: _openLogin,
+            ),
+          ],
         ),
       ),
     );

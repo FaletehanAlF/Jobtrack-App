@@ -4,6 +4,7 @@ import 'login_page.dart';
 import 'onboarding_screen.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../theme/jobtrack_theme.dart';
 
 /// Halaman utama setelah login.
 ///

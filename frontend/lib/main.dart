@@ -6,6 +6,7 @@ import 'pages/login_page.dart';
 import 'pages/onboarding_screen.dart';
 import 'pages/register_page.dart';
 import 'services/auth_service.dart';
+import 'theme/jobtrack_theme.dart';
 
 void main() {
   runApp(const JobTrackApp());
@@ -19,11 +20,14 @@ class JobTrackApp extends StatelessWidget {
     return MaterialApp(
       title: 'JobTrack',
       debugShowCheckedModeBanner: false,
+      // Token warna dipusatkan di `theme/jobtrack_theme.dart`. Nilainya sama
+      // dengan yang sebelumnya ditulis langsung di sini, jadi halaman lain
+      // (mis. home) tetap tampil seperti biasa.
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF7F9FB),
+        scaffoldBackgroundColor: JobTrackColors.background,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1F6FEB),
+          seedColor: JobTrackColors.blue,
         ),
       ),
       // Halaman pertama adalah "gerbang sesi": sebelum menampilkan

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'home_page.dart';
-import 'onboarding_screen.dart';
 import 'register_page.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../theme/jobtrack_theme.dart';
 import '../utils/validators.dart';
+import '../widgets/auth_components.dart';
 
 /// Halaman login: memasukkan email dan password untuk masuk ke aplikasi.
 ///
@@ -28,6 +30,10 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
   bool _loading = false;
 
+  /// Pesan gagal login. Ditampilkan sebagai banner di atas tombol, bukan
+  /// SnackBar, supaya tetap terbaca selama pengguna memperbaiki isian.
+  String? _errorMessage;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -43,7 +49,10 @@ class _LoginPageState extends State<LoginPage> {
     // Mencegah request terkirim dua kali saat tombol ditekan berulang.
     if (_loading) return;
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
 
     try {
       await _authService.login(
@@ -62,176 +71,114 @@ class _LoginPageState extends State<LoginPage> {
     } catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.toString()),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      setState(() => _errorMessage = _messageFor(error));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  /// Mengubah error menjadi kalimat yang bisa dibaca pengguna.
+  ///
+  /// [ApiException.toString] sudah berisi pesan dari server; error lain
+  /// (mis. bug di luar alur API) tidak dibocorkan apa adanya.
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+    return 'Terjadi kesalahan. Coba lagi.';
+  }
+
+  void _openRegister() {
+    if (_loading) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: JobTrackColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: JobTrackColors.navy),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight:
-                  MediaQuery.of(context).size.height -
-                  MediaQuery.of(context).padding.vertical -
-                  kToolbarHeight,
+    final errorMessage = _errorMessage;
+
+    return AuthPageScaffold(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AuthHeader(
+              title: 'Selamat Datang Kembali',
+              subtitle: 'Masuk untuk melanjutkan perjalanan kariermu.',
+              logoSize: 68,
             ),
-            child: Center(
-              child: ConstrainedBox(
-                // Sama dengan onboarding: konten tetap terpusat dan tidak
-                // melebar memenuhi seluruh layar di tablet/desktop.
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 16,
+            const SizedBox(height: 28),
+
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              textInputAction: TextInputAction.next,
+              validator: Validators.email,
+              style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
+              decoration: authFieldDecoration(
+                label: 'Email',
+                hint: 'nama@email.com',
+                prefixIcon: const AuthFieldIcon(Icons.mail_outline_rounded),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _login(),
+              validator: Validators.loginPassword,
+              style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
+              decoration: authFieldDecoration(
+                label: 'Password',
+                hint: 'Masukkan password',
+                prefixIcon: const AuthFieldIcon(Icons.lock_outline_rounded),
+                suffixIcon: IconButton(
+                  tooltip: _obscurePassword
+                      ? 'Tampilkan password'
+                      : 'Sembunyikan password',
+                  onPressed: () => setState(
+                    () => _obscurePassword = !_obscurePassword,
                   ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Masuk',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            color: JobTrackColors.navy,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Selamat datang kembali! Masuk untuk melanjutkan.',
-                          style: TextStyle(
-                            fontSize: 15,
-                            height: 1.55,
-                            color: JobTrackColors.navyMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          autocorrect: false,
-                          textInputAction: TextInputAction.next,
-                          validator: Validators.email,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined),
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          autocorrect: false,
-                          textInputAction: TextInputAction.done,
-                          onFieldSubmitted: (_) => _login(),
-                          validator: Validators.loginPassword,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
-                              ),
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: 52,
-                          child: ElevatedButton(
-                            // Tombol dinonaktifkan saat loading agar request
-                            // tidak terkirim dua kali.
-                            onPressed: _loading ? null : _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: JobTrackColors.blue,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: const Color(
-                                0xFFB9C6D3,
-                              ),
-                              disabledForegroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            child: _loading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Masuk'),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'Belum punya akun?',
-                              style: TextStyle(
-                                color: JobTrackColors.navyMuted,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: _loading
-                                  ? null
-                                  : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const RegisterPage(),
-                                      ),
-                                    ),
-                              child: const Text(
-                                'Daftar',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: JobTrackColors.blue,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 22,
+                    color: JobTrackColors.navyMuted,
                   ),
                 ),
               ),
             ),
-          ),
+
+            if (errorMessage != null) ...[
+              const SizedBox(height: 16),
+              AuthErrorBanner(message: errorMessage),
+            ],
+
+            const SizedBox(height: 24),
+
+            // Tombol dinonaktifkan dan menampilkan indikator selama loading
+            // agar request tidak terkirim dua kali.
+            PrimaryButton(
+              label: 'Masuk',
+              loading: _loading,
+              onPressed: _login,
+            ),
+            const SizedBox(height: 12),
+            AuthLinkRow(
+              question: 'Belum punya akun?',
+              action: 'Daftar',
+              onPressed: _openRegister,
+            ),
+          ],
         ),
       ),
     );
