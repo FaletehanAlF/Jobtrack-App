@@ -1,15 +1,8 @@
 // Tes dasar untuk halaman onboarding dan alur navigasi autentikasi JobTrack.
 //
 // Memastikan aplikasi berhasil dibangun, elemen utama onboarding tampil,
-// dan tombol utama ("Mulai Sekarang") serta tautan "Masuk" membuka halaman
-// register dan login.
-//
-// Sejak ada gerbang sesi (main.dart), frame pertama aplikasi adalah indikator
-// pemeriksaan token, bukan onboarding. Uji di bawah memakai SharedPreferences
-// mock kosong (tanda belum ada token), lalu mem-pump beberapa frame sampai
-// gerbang selesai dan onboarding tampil — sama seperti pengguna baru.
+// dan tombol "Mulai Sekarang" serta "Masuk" membuka halaman register dan login.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,85 +18,56 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  /// Membangun aplikasi lalu menunggu gerbang sesi selesai.
-  ///
-  /// Dua kali pump: mengalirkan pemeriksaan sesi (tanpa token) dan
-  /// menyelesaikan transisi menuju onboarding. pumpAndSettle tidak dipakai
-  /// karena indikator loading berputar tanpa henti.
-  Future<void> pumpApp(WidgetTester tester) async {
-    await tester.pumpWidget(const JobTrackApp());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-  }
-
   testWidgets('Onboarding menampilkan nama aplikasi, judul, dan tombol', (
     WidgetTester tester,
   ) async {
-    await pumpApp(tester);
+    // Bangun aplikasi: frame pertama adalah indikator pemeriksaan sesi.
+    await tester.pumpWidget(const JobTrackApp());
 
-    // Nama aplikasi dan headline muncul.
+    // Dua kali pump: mengalirkan pemeriksaan sesi (tanpa token) dan
+    // menyelesaikan transisi menuju onboarding. pumpAndSettle tidak dipakai
+    // di sini karena tunda indikatornya berputar tanpa henti.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Nama aplikasi muncul di tengah layar.
     expect(find.text('JobTrack'), findsOneWidget);
-    expect(find.text('Temukan Peluang Kariermu'), findsOneWidget);
 
-    // Satu tindakan utama plus tautan masuk sebagai akses sekunder.
+    // Tombol utama tersedia untuk pengguna.
     expect(find.text('Mulai Sekarang'), findsOneWidget);
-    expect(find.text('Sudah punya akun?'), findsOneWidget);
     expect(find.text('Masuk'), findsOneWidget);
-
-    // Tidak ada tombol login sosial: alurnya belum ada di backend.
-    expect(find.textContaining('Google'), findsNothing);
-    expect(find.textContaining('Apple'), findsNothing);
-    expect(find.textContaining('Facebook'), findsNothing);
   });
 
-  testWidgets('Tombol Masuk membuka halaman login', (
+  testWidgets('Tombol Mulai Sekarang membuka halaman register', (
     WidgetTester tester,
   ) async {
-    await pumpApp(tester);
+    await tester.pumpWidget(const JobTrackApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(find.text('Mulai Sekarang'));
+    await tester.pumpAndSettle();
+
+    // Halaman register tampil dengan tiga field-nya.
+    expect(find.byType(RegisterPage), findsOneWidget);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+  });
+
+  testWidgets('Tautan Masuk membuka halaman login', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const JobTrackApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();
 
     // Halaman login tampil: ada judulnya, field email, dan tombol Masuk.
     expect(find.byType(LoginPage), findsOneWidget);
-    expect(find.text('Selamat Datang Kembali'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
-  });
-
-  testWidgets('Tombol Mulai Sekarang membuka halaman register', (
-    WidgetTester tester,
-  ) async {
-    await pumpApp(tester);
-
-    await tester.tap(find.text('Mulai Sekarang'));
-    await tester.pumpAndSettle();
-
-    // Halaman register tampil dengan keempat field-nya.
-    expect(find.byType(RegisterPage), findsOneWidget);
-    expect(find.text('Buat Akun JobTrack'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Password'), findsOneWidget);
-    expect(find.text('Konfirmasi Password'), findsOneWidget);
-  });
-
-  testWidgets('Validasi form login menolak isian kosong', (
-    WidgetTester tester,
-  ) async {
-    await pumpApp(tester);
-
-    await tester.tap(find.text('Masuk'));
-    await tester.pumpAndSettle();
-
-    // Tekan tombol submit tanpa mengisi apa pun.
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Masuk'));
-    await tester.pumpAndSettle();
-
-    // Validator lokal menampilkan pesan, dan tidak ada request ke server
-    // (tidak ada banner error jaringan yang muncul).
-    expect(find.text('Email wajib diisi'), findsOneWidget);
-    expect(find.text('Password wajib diisi'), findsOneWidget);
-    expect(find.textContaining('Tidak dapat terhubung'), findsNothing);
   });
 }

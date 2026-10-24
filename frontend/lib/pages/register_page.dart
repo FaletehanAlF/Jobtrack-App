@@ -10,10 +10,9 @@ import '../widgets/auth_components.dart';
 /// Halaman pendaftaran akun baru.
 ///
 /// Backend memvalidasi: username 3–50 karakter, email valid, password
-/// 8–72 karakter, dan `confirmPassword` wajib sama dengan password.
-///
-/// Respons backend register TIDAK berisi token (hanya pesan dan data user),
-/// jadi setelah berhasil pengguna diarahkan ke [LoginPage] untuk masuk.
+/// 8–72 karakter. Field `confirmPassword` tetap dikirim ke backend
+/// (disamakan dengan password) agar validasi server tetap berjalan,
+/// tetapi tidak ditampilkan di form agar pengalaman pengguna lebih ringkas.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -26,12 +25,10 @@ class _RegisterPageState extends State<RegisterPage> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
 
   final _authService = AuthService();
 
   bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   bool _loading = false;
 
   /// Pesan gagal pendaftaran, ditampilkan sebagai banner di atas tombol.
@@ -42,7 +39,6 @@ class _RegisterPageState extends State<RegisterPage> {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -60,9 +56,6 @@ class _RegisterPageState extends State<RegisterPage> {
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
-        // Backend mewajibkan field ini; nilainya dikirim agar validasi
-        // kecocokan password di server tetap berjalan.
-        confirmPassword: _confirmPasswordController.text,
       );
 
       if (!mounted) return;
@@ -164,10 +157,8 @@ class _RegisterPageState extends State<RegisterPage> {
               obscureText: _obscurePassword,
               autocorrect: false,
               enableSuggestions: false,
-              textInputAction: TextInputAction.next,
-              // Mengetik ulang password harus memvalidasi konfirmasi juga,
-              // karena pesan "tidak sama" bergantung pada nilai ini.
-              onChanged: (_) => setState(() {}),
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _register(),
               validator: Validators.password,
               style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
               decoration: authFieldDecoration(
@@ -183,41 +174,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   icon: Icon(
                     _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    size: 22,
-                    color: JobTrackColors.navyMuted,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            TextFormField(
-              controller: _confirmPasswordController,
-              obscureText: _obscureConfirmPassword,
-              autocorrect: false,
-              enableSuggestions: false,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => _register(),
-              validator: (value) => Validators.confirmPassword(
-                value,
-                _passwordController.text,
-              ),
-              style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
-              decoration: authFieldDecoration(
-                label: 'Konfirmasi Password',
-                hint: 'Ulangi password',
-                prefixIcon: const AuthFieldIcon(Icons.lock_outline_rounded),
-                suffixIcon: IconButton(
-                  tooltip: _obscureConfirmPassword
-                      ? 'Tampilkan password'
-                      : 'Sembunyikan password',
-                  onPressed: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                  ),
-                  icon: Icon(
-                    _obscureConfirmPassword
                         ? Icons.visibility_outlined
                         : Icons.visibility_off_outlined,
                     size: 22,
