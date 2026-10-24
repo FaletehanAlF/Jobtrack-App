@@ -3,6 +3,8 @@
 // Memastikan aplikasi berhasil dibangun, elemen utama onboarding tampil,
 // dan tombol "Mulai Sekarang" serta "Masuk" membuka halaman register dan login.
 
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,19 +23,18 @@ void main() {
   testWidgets('Onboarding menampilkan nama aplikasi, judul, dan tombol', (
     WidgetTester tester,
   ) async {
-    // Bangun aplikasi: frame pertama adalah indikator pemeriksaan sesi.
-    await tester.pumpWidget(const JobTrackApp());
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
 
-    // Dua kali pump: mengalirkan pemeriksaan sesi (tanpa token) dan
-    // menyelesaikan transisi menuju onboarding. pumpAndSettle tidak dipakai
-    // di sini karena tunda indikatornya berputar tanpa henti.
+    await tester.pumpWidget(const JobTrackApp());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    // Nama aplikasi muncul di tengah layar.
     expect(find.text('JobTrack'), findsOneWidget);
-
-    // Tombol utama tersedia untuk pengguna.
     expect(find.text('Mulai Sekarang'), findsOneWidget);
     expect(find.text('Masuk'), findsOneWidget);
   });
@@ -41,6 +42,13 @@ void main() {
   testWidgets('Tombol Mulai Sekarang membuka halaman register', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     await tester.pumpWidget(const JobTrackApp());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -48,7 +56,6 @@ void main() {
     await tester.tap(find.text('Mulai Sekarang'));
     await tester.pumpAndSettle();
 
-    // Halaman register tampil dengan tiga field-nya.
     expect(find.byType(RegisterPage), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
@@ -58,6 +65,13 @@ void main() {
   testWidgets('Tautan Masuk membuka halaman login', (
     WidgetTester tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
     await tester.pumpWidget(const JobTrackApp());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -65,7 +79,6 @@ void main() {
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();
 
-    // Halaman login tampil: ada judulnya, field email, dan tombol Masuk.
     expect(find.byType(LoginPage), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);

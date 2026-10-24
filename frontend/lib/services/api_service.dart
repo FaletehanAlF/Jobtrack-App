@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -24,8 +25,9 @@ class ApiException implements Exception {
 /// Pembungkus semua komunikasi HTTP ke backend JobTrack.
 class ApiService {
   // 10.0.2.2 adalah alamat komputer host dilihat dari Android Emulator.
-  // Di iOS Simulator / Flutter Web gunakan http://localhost:6000/api.
-  static const String _defaultBaseUrl = 'http://localhost:6000/api';
+  // Di iOS Simulator / Flutter Web gunakan http://localhost:3000/api.
+  // Port 3000 dipilih karena port 6000 diblokir Chrome sebagai unsafe port.
+  static const String _defaultBaseUrl = 'http://localhost:3000/api';
 
   // Kunci penyimpanan token di perangkat.
   static const String _tokenKey = 'auth_token';
@@ -110,12 +112,23 @@ class ApiService {
 
   /// Membungkus pemanggilan HTTP: mengubah kegagalan jaringan menjadi
   /// [ApiException] agar pemanggil hanya perlu menangani satu jenis error.
+  ///
+  /// Timeout 15 detik ditambahkan sebagai pengaman: jika request menggantung
+  /// (mis. port diblokir browser), UI tetap mendapat error, bukan loading
+  /// tanpa akhir.
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     try {
-      final response = await request();
+      final response = await request().timeout(
+        const Duration(seconds: 15),
+      );
       return _handleResponse(response);
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw ApiException(
+        0,
+        'Tidak dapat terhubung ke server. Pastikan backend berjalan.',
+      );
     } catch (_) {
       throw ApiException(
         0,
