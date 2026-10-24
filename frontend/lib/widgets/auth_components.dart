@@ -236,10 +236,7 @@ class AuthAvatar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: JobTrackColors.blue,
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: JobTrackColors.authCard,
-                    width: 3,
-                  ),
+                  border: Border.all(color: JobTrackColors.authCard, width: 3),
                 ),
                 child: Icon(
                   Icons.add_rounded,
@@ -498,10 +495,7 @@ class SocialCircleButton extends StatelessWidget {
           onPressed: onPressed,
           style: OutlinedButton.styleFrom(
             backgroundColor: JobTrackColors.authCard,
-            side: const BorderSide(
-              color: JobTrackColors.authBorder,
-              width: 1,
-            ),
+            side: const BorderSide(color: JobTrackColors.authBorder, width: 1),
             shape: const CircleBorder(),
             padding: EdgeInsets.zero,
           ),

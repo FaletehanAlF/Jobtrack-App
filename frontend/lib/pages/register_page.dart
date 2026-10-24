@@ -93,182 +93,19 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     final errorMessage = _errorMessage;
 
-    return Scaffold(
-      backgroundColor: JobTrackColors.warmBackground,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 720;
-            final horizontalPadding = constraints.maxWidth < 380 ? 20.0 : 28.0;
-
-            if (isWide) {
-              return Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      color: JobTrackColors.navy,
-                      padding: const EdgeInsets.all(48),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const JobTrackLogo(size: 72),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'JobTrack',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 2.0,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Mulai Perjalanan\nKariermu',
-                            style: TextStyle(
-                              fontSize: 36,
-                              height: 1.15,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.8,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Buat akun gratis dan mulai kelola lamaran kerjamu '
-                            'dengan lebih terorganisir.',
-                            style: TextStyle(
-                              fontSize: 15,
-                              height: 1.6,
-                              color: Colors.white.withValues(alpha: 0.8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 420),
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(48),
-                          child: _RegisterForm(
-                            formKey: _formKey,
-                            usernameController: _usernameController,
-                            emailController: _emailController,
-                            passwordController: _passwordController,
-                            obscurePassword: _obscurePassword,
-                            onToggleObscure: () => setState(
-                              () => _obscurePassword = !_obscurePassword,
-                            ),
-                            loading: _loading,
-                            errorMessage: errorMessage,
-                            onRegister: _register,
-                            onOpenLogin: _openLogin,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }
-
-            return SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Header navy
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
-                    decoration: const BoxDecoration(
-                      color: JobTrackColors.navy,
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(28),
-                        bottomRight: Radius.circular(28),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        const JobTrackLogo(size: 64),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'JobTrack',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2.0,
-                            color: Colors.white70,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Buat Akun JobTrack',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Mulai catat dan pantau lamaran kerjamu.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.5,
-                            color: Colors.white.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Form card
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: 24,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: JobTrackColors.warmSurface,
-                        borderRadius: BorderRadius.circular(JobTrackRadii.card),
-                        border: Border.all(color: JobTrackColors.border),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x0A0F2137),
-                            blurRadius: 20,
-                            offset: Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: _RegisterForm(
-                        formKey: _formKey,
-                        usernameController: _usernameController,
-                        emailController: _emailController,
-                        passwordController: _passwordController,
-                        obscurePassword: _obscurePassword,
-                        onToggleObscure: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                        loading: _loading,
-                        errorMessage: errorMessage,
-                        onRegister: _register,
-                        onOpenLogin: _openLogin,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+    return AuthPageScaffold(
+      child: _RegisterForm(
+        formKey: _formKey,
+        usernameController: _usernameController,
+        emailController: _emailController,
+        passwordController: _passwordController,
+        obscurePassword: _obscurePassword,
+        onToggleObscure: () =>
+            setState(() => _obscurePassword = !_obscurePassword),
+        loading: _loading,
+        errorMessage: errorMessage,
+        onRegister: _register,
+        onOpenLogin: _openLogin,
       ),
     );
   }
@@ -306,35 +143,40 @@ class _RegisterForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const AuthHeader(
+            title: 'Buat Akun',
+            subtitle: 'Daftar untuk memulai dashboardmu.',
+            showBadge: true,
+          ),
+          const SizedBox(height: 28),
+
+          const AuthFieldLabel('Username'),
+          const SizedBox(height: 8),
           TextFormField(
             controller: usernameController,
             autocorrect: false,
             textInputAction: TextInputAction.next,
             validator: Validators.username,
-            style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
-            decoration: authFieldDecoration(
-              label: 'Username',
-              hint: 'Minimal 3 karakter',
-              prefixIcon: const AuthFieldIcon(Icons.person_outline_rounded),
-            ),
+            style: const TextStyle(fontSize: 14.5, color: JobTrackColors.navy),
+            decoration: authFieldDecoration(hint: 'Minimal 3 karakter'),
           ),
           const SizedBox(height: 16),
 
+          const AuthFieldLabel('Email'),
+          const SizedBox(height: 8),
           TextFormField(
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
             textInputAction: TextInputAction.next,
             validator: Validators.email,
-            style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
-            decoration: authFieldDecoration(
-              label: 'Email',
-              hint: 'nama@email.com',
-              prefixIcon: const AuthFieldIcon(Icons.mail_outline_rounded),
-            ),
+            style: const TextStyle(fontSize: 14.5, color: JobTrackColors.navy),
+            decoration: authFieldDecoration(hint: 'nama@email.com'),
           ),
           const SizedBox(height: 16),
 
+          const AuthFieldLabel('Password'),
+          const SizedBox(height: 8),
           TextFormField(
             controller: passwordController,
             obscureText: obscurePassword,
@@ -343,11 +185,9 @@ class _RegisterForm extends StatelessWidget {
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => onRegister(),
             validator: Validators.password,
-            style: const TextStyle(fontSize: 15, color: JobTrackColors.navy),
+            style: const TextStyle(fontSize: 14.5, color: JobTrackColors.navy),
             decoration: authFieldDecoration(
-              label: 'Password',
               hint: 'Minimal 8 karakter',
-              prefixIcon: const AuthFieldIcon(Icons.lock_outline_rounded),
               suffixIcon: IconButton(
                 tooltip: obscurePassword
                     ? 'Tampilkan password'
@@ -357,7 +197,7 @@ class _RegisterForm extends StatelessWidget {
                   obscurePassword
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
-                  size: 22,
+                  size: 20,
                   color: JobTrackColors.navyMuted,
                 ),
               ),
@@ -370,54 +210,43 @@ class _RegisterForm extends StatelessWidget {
           ],
 
           const SizedBox(height: 24),
-
           PrimaryButton(
             label: 'Buat Akun',
             loading: loading,
             onPressed: onRegister,
           ),
-
           const SizedBox(height: 24),
 
-          Row(
-            children: [
-              Expanded(child: Divider(color: JobTrackColors.border, thickness: 1)),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'atau daftar dengan',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: JobTrackColors.navyMuted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Expanded(child: Divider(color: JobTrackColors.border, thickness: 1)),
-            ],
-          ),
-
+          const AuthDivider(),
           const SizedBox(height: 20),
 
-          _SocialIconButton(
-            icon: Icons.g_mobiledata_rounded,
-            color: const Color(0xFFDB4437),
-            onPressed: loading ? null : () {},
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SocialCircleButton(
+                tooltip: 'Daftar dengan Google',
+                icon: const GoogleIcon(),
+                onPressed: loading ? null : () {},
+              ),
+              const SizedBox(width: 14),
+              SocialCircleButton(
+                tooltip: 'Daftar dengan Apple',
+                icon: const Icon(Icons.apple, size: 23, color: Colors.black),
+                onPressed: loading ? null : () {},
+              ),
+              const SizedBox(width: 14),
+              SocialCircleButton(
+                tooltip: 'Daftar dengan Facebook',
+                icon: const Icon(
+                  Icons.facebook,
+                  size: 24,
+                  color: Color(0xFF1877F2),
+                ),
+                onPressed: loading ? null : () {},
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          _SocialIconButton(
-            icon: Icons.link_rounded,
-            color: const Color(0xFF0A66C2),
-            onPressed: loading ? null : () {},
-          ),
-          const SizedBox(height: 10),
-          _SocialIconButton(
-            icon: Icons.facebook_rounded,
-            color: const Color(0xFF1877F2),
-            onPressed: loading ? null : () {},
-          ),
-
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
           AuthLinkRow(
             question: 'Sudah punya akun?',
@@ -425,36 +254,6 @@ class _RegisterForm extends StatelessWidget {
             onPressed: onOpenLogin,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SocialIconButton extends StatelessWidget {
-  const _SocialIconButton({
-    required this.icon,
-    required this.color,
-    this.onPressed,
-  });
-
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 52,
-      height: 52,
-      child: OutlinedButton(
-        onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color,
-          side: BorderSide(color: JobTrackColors.border, width: 1.2),
-          shape: const CircleBorder(),
-          padding: EdgeInsets.zero,
-        ),
-        child: Icon(icon, size: 24, color: color),
       ),
     );
   }
