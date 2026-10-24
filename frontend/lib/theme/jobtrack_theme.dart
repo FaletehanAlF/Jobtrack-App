@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 ///
 /// Identitas utama JobTrack: navy `#0F2137` dan aksen biru `#1F6FEB`
 /// (seed tema global, dashboard, dan komponen autentikasi).
-/// Token `warm*` di bawah dipakai latar halaman autentikasi
-/// (krem `warmBackground`, card `warmSurface`). Keluarga teal/olive
-/// tidak lagi dipakai halaman mana pun dan hanya tersimpan sebagai
-/// token opsional.
+/// Halaman onboarding/login/register memakai latar gradien lembut serta
+/// kartu putih (`authBackgroundTop`, `authBackgroundBottom`, `authCard`)
+/// agar tampil ringan dan fokus pada form.
+/// Token `warm*`/teal lama tetap tersimpan sebagai token opsional, tetapi
+/// tidak lagi dipakai halaman autentikasi.
 class JobTrackColors {
   /// Teks utama dan ikon gelap.
   static const Color navy = Color(0xFF0F2137);
@@ -49,7 +50,25 @@ class JobTrackColors {
   /// Warna tombol utama saat dinonaktifkan (mis. sedang loading).
   static const Color disabled = Color(0xFFB9C6D3);
 
-  // ── Token warm (latar halaman autentikasi) & sisa token teal ───────
+  // ── Permukaan halaman autentikasi ──────────────────────────────────
+
+  /// Gradien latar halaman autentikasi (atas → bawah).
+  static const Color authBackgroundTop = Color(0xFFEEF3F9);
+  static const Color authBackgroundBottom = Color(0xFFE3EBF5);
+
+  /// Kartu putih tempat form autentikasi.
+  static const Color authCard = Color(0xFFFFFFFF);
+
+  /// Border field, pembatas, dan tombol sosial.
+  static const Color authBorder = Color(0xFFD9E1EA);
+
+  /// Bayangan lembut kartu dan tombol utama.
+  static const Color authShadow = Color(0x140F2137);
+
+  /// Latar lingkaran avatar di halaman autentikasi.
+  static const Color authAvatarBackground = Color(0xFFF1F5FA);
+
+  // ── Token lama (tidak dipakai halaman autentikasi baru) ───────────
 
   /// Latar halaman hangat (krem/off-white) halaman autentikasi.
   static const Color warmBackground = Color(0xFFF5F0E8);
@@ -82,8 +101,9 @@ class JobTrackColors {
 
 /// Radius sudut yang dipakai bersama oleh form autentikasi.
 class JobTrackRadii {
-  static const double field = 14;
-  static const double button = 14;
-  static const double banner = 12;
-  static const double card = 24;
+  static const double field = 12;
+  static const double button = 28;
+  static const double banner = 14;
+  static const double card = 32;
+  static const double social = 28;
 }
