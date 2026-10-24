@@ -106,7 +106,7 @@ class OnboardingScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 15,
                               height: 1.6,
-                              color: JobTrackColors.warmTextMuted,
+                              color: JobTrackColors.navyMuted,
                             ),
                           ),
 

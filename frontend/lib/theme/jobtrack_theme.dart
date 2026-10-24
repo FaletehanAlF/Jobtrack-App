@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 /// Palet warna bersama untuk seluruh halaman JobTrack.
 ///
-/// Palet utama (navy, blue) tetap dipertahankan untuk halaman lain.
-/// Palet baru (teal, warm) ditambahkan untuk halaman onboarding/login/register
-/// agar konsisten dengan referensi visual yang diinginkan, tanpa mengubah
-/// token lama yang sudah dipakai halaman lain.
+/// Identitas utama JobTrack: navy `#0F2137` dan aksen biru `#1F6FEB`
+/// (seed tema global, dashboard, dan komponen autentikasi).
+/// Token `warm*` di bawah dipakai latar halaman autentikasi
+/// (krem `warmBackground`, card `warmSurface`). Keluarga teal/olive
+/// tidak lagi dipakai halaman mana pun dan hanya tersimpan sebagai
+/// token opsional.
 class JobTrackColors {
   /// Teks utama dan ikon gelap.
   static const Color navy = Color(0xFF0F2137);
@@ -13,8 +15,8 @@ class JobTrackColors {
   /// Teks sekunder: subjudul, keterangan, ikon field.
   static const Color navyMuted = Color(0xFF5A6B7B);
 
-  /// Aksen palet lama: dipakai dashboard dan seed tema global
-  /// (`MaterialApp`). Halaman autentikasi memakai token teal di bawah.
+  /// Aksen utama JobTrack: tombol, tautan, border field saat fokus, dan
+  /// seed tema global (`MaterialApp`) — dashboard maupun halaman autentikasi.
   static const Color blue = Color(0xFF1F6FEB);
 
   /// Latar lembut untuk elemen beraksen biru.
@@ -47,18 +49,19 @@ class JobTrackColors {
   /// Warna tombol utama saat dinonaktifkan (mis. sedang loading).
   static const Color disabled = Color(0xFFB9C6D3);
 
-  // ── Palet baru: warm & teal (onboarding, login, register) ──────────
+  // ── Token warm (latar halaman autentikasi) & sisa token teal ───────
 
-  /// Latar halaman hangat (krem/off-white).
+  /// Latar halaman hangat (krem/off-white) halaman autentikasi.
   static const Color warmBackground = Color(0xFFF5F0E8);
 
   /// Latar card form (putih hangat).
   static const Color warmSurface = Color(0xFFFFFCF7);
 
-  /// Aksen utama: teal gelap untuk tombol dan elemen penting.
+  /// Token teal/olive di bawah tidak dipakai halaman mana pun setelah
+  /// halaman autentikasi kembali ke aksen biru/navy JobTrack.
   static const Color teal = Color(0xFF1B6B6B);
 
-  /// Teal lebih gelap untuk header area.
+  /// (Tidak dipakai; sebelumnya warna header autentikasi, kini navy.)
   static const Color tealDark = Color(0xFF0F4F4F);
 
   /// Teal lembut untuk latar ikon dan aksen sekunder.

@@ -8,7 +8,6 @@ import '../theme/jobtrack_theme.dart';
 import '../utils/validators.dart';
 import '../widgets/auth_components.dart';
 
-/// Halaman login: memasukkan email dan password untuk masuk ke aplikasi.
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -166,12 +165,12 @@ class _LoginPageState extends State<LoginPage> {
               );
             }
 
-            // ── Mobile: satu kolom dengan header teal ────────────────
+            // ── Mobile: satu kolom dengan header navy ────────────────
             return SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header teal
+                  // Header navy
                   Container(
                     padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
                     decoration: const BoxDecoration(

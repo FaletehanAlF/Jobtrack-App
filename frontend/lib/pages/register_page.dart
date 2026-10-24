@@ -180,7 +180,7 @@ class _RegisterPageState extends State<RegisterPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header teal
+                  // Header navy
                   Container(
                     padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
                     decoration: const BoxDecoration(
