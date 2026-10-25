@@ -6,9 +6,12 @@ import 'onboarding_screen.dart';
 import 'home_tab.dart';
 import 'jobs_page.dart';
 import 'profile_page.dart';
+import 'register_page.dart';
 import 'saved_jobs_page.dart';
+import '../models/job_model.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/job_service.dart';
 import '../theme/jobtrack_theme.dart';
 
 /// Shell utama setelah login.
@@ -16,9 +19,16 @@ import '../theme/jobtrack_theme.dart';
 /// Menyediakan Bottom Navigation Bar untuk pencari kerja:
 /// Beranda, Lowongan, Lamaran, Tersimpan, Profil.
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.user});
+  const HomePage({
+    super.key,
+    this.user,
+    this.jobService,
+  });
 
   final UserModel? user;
+
+  /// Bisa diisi saat pengujian agar test tidak benar-benar ke backend.
+  final JobService? jobService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -30,12 +40,40 @@ class _HomePageState extends State<HomePage> {
   UserModel? _user;
   bool _loadingUser = true;
   int _currentIndex = 0;
+  List<JobModel> _jobs = const [];
+  bool _loadingJobs = true;
+  String? _jobsError;
 
   @override
   void initState() {
     super.initState();
     _user = widget.user;
     _loadUser();
+    _loadJobs();
+  }
+
+  Future<void> _loadJobs() async {
+    final jobService = widget.jobService ?? JobService();
+
+    setState(() {
+      _loadingJobs = true;
+      _jobsError = null;
+    });
+
+    try {
+      final jobs = await jobService.fetchJobs();
+      if (!mounted) return;
+      setState(() {
+        _jobs = jobs;
+        _loadingJobs = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _jobsError = error.toString();
+        _loadingJobs = false;
+      });
+    }
   }
 
   Future<void> _loadUser() async {
@@ -76,13 +114,29 @@ class _HomePageState extends State<HomePage> {
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      MaterialPageRoute(
+        builder: (routeContext) => OnboardingScreen(
+          onLogin: () => _openLoginPage(routeContext),
+          onSignUp: () => _openRegisterPage(routeContext),
+        ),
+      ),
       (route) => false,
     );
   }
 
-  // Import ditunda ke atas; LoginPage/OnboardingScreen diimport di sini
-  // agar tidak menambah import siklik yang tidak perlu.
+  void _openLoginPage(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
+  }
+
+  void _openRegisterPage(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterPage()),
+    );
+  }
   static const _titles = <String>[
     'JobTrack',
     'Lowongan',
@@ -101,8 +155,19 @@ class _HomePageState extends State<HomePage> {
     }
 
     final pages = <Widget>[
-      HomeTab(user: _user),
-      const JobsPage(),
+      HomeTab(
+        user: _user,
+        jobs: _jobs,
+        loading: _loadingJobs,
+        error: _jobsError,
+        onRefresh: _loadJobs,
+      ),
+      JobsPage(
+        jobs: _jobs,
+        loading: _loadingJobs,
+        error: _jobsError,
+        onRefresh: _loadJobs,
+      ),
       const ApplicationsPage(),
       const SavedJobsPage(),
       ProfilePage(user: _user, onLogout: _logout),

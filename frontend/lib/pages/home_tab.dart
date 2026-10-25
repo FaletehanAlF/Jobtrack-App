@@ -3,27 +3,33 @@ import 'package:flutter/material.dart';
 import '../models/job_model.dart';
 import '../models/user_model.dart';
 import '../pages/jobs_page.dart' show JobDetailPage;
-import '../services/job_service.dart';
 import '../theme/jobtrack_theme.dart';
 
 /// Tab "Beranda": sapaan, pencarian lowongan, ringkasan lamaran,
-/// dan lowongan terbaru. Data lowongan diambil dari `GET /api/jobs`.
+/// dan lowongan terbaru. Data lowongan diambil dari shell [HomePage].
 class HomeTab extends StatefulWidget {
-  const HomeTab({super.key, this.user});
+  const HomeTab({
+    super.key,
+    this.user,
+    required this.jobs,
+    required this.loading,
+    required this.error,
+    required this.onRefresh,
+  });
 
   final UserModel? user;
+  final List<JobModel> jobs;
+  final bool loading;
+  final String? error;
+  final Future<void> Function() onRefresh;
 
   @override
   State<HomeTab> createState() => _HomeTabState();
 }
 
 class _HomeTabState extends State<HomeTab> {
-  final _jobService = JobService();
   final _searchController = TextEditingController();
 
-  bool _loading = true;
-  String? _error;
-  List<JobModel> _jobs = const [];
   String _query = '';
   String? _selectedLocation;
 
@@ -31,7 +37,6 @@ class _HomeTabState extends State<HomeTab> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _loadJobs();
   }
 
   @override
@@ -45,31 +50,9 @@ class _HomeTabState extends State<HomeTab> {
     setState(() => _query = _searchController.text.trim().toLowerCase());
   }
 
-  Future<void> _loadJobs() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final jobs = await _jobService.fetchJobs();
-      if (!mounted) return;
-      setState(() {
-        _jobs = jobs;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = error.toString();
-        _loading = false;
-      });
-    }
-  }
-
   List<String> get _locations {
     final set = <String>{};
-    for (final job in _jobs) {
+    for (final job in widget.jobs) {
       if (job.location.trim().isNotEmpty) set.add(job.location.trim());
     }
     final list = set.toList()..sort();
@@ -77,7 +60,7 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   List<JobModel> get _filteredJobs {
-    Iterable<JobModel> result = _jobs;
+    Iterable<JobModel> result = widget.jobs;
 
     if (_selectedLocation != null) {
       result = result.where((job) => job.location.trim() == _selectedLocation);
@@ -98,7 +81,7 @@ class _HomeTabState extends State<HomeTab> {
     final user = widget.user;
 
     return RefreshIndicator(
-      onRefresh: _loadJobs,
+      onRefresh: widget.onRefresh,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
@@ -120,10 +103,10 @@ class _HomeTabState extends State<HomeTab> {
             title: _query.isEmpty && _selectedLocation == null
                 ? 'Lowongan terbaru'
                 : 'Hasil pencarian',
-            loading: _loading,
-            error: _error,
+            loading: widget.loading,
+            error: widget.error,
             jobs: _filteredJobs,
-            onRetry: _loadJobs,
+            onRetry: widget.onRefresh,
             emptyMessage: _query.isEmpty && _selectedLocation == null
                 ? 'Belum ada lowongan tersedia.'
                 : 'Tidak ada lowongan yang cocok dengan pencarian.',

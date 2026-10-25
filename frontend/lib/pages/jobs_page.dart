@@ -1,59 +1,30 @@
 import 'package:flutter/material.dart';
 
 import '../models/job_model.dart';
-import '../services/job_service.dart';
 import '../theme/jobtrack_theme.dart';
 
-/// Halaman daftar lowongan.
-class JobsPage extends StatefulWidget {
-  const JobsPage({super.key});
+/// Halaman daftar lowongan. Data lowongan diambil dari shell [HomePage].
+class JobsPage extends StatelessWidget {
+  const JobsPage({
+    super.key,
+    required this.jobs,
+    required this.loading,
+    required this.error,
+    required this.onRefresh,
+  });
 
-  @override
-  State<JobsPage> createState() => _JobsPageState();
-}
-
-class _JobsPageState extends State<JobsPage> {
-  final _jobService = JobService();
-
-  bool _loading = true;
-  String? _error;
-  List<JobModel> _jobs = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final jobs = await _jobService.fetchJobs();
-      if (!mounted) return;
-      setState(() {
-        _jobs = jobs;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = error.toString();
-        _loading = false;
-      });
-    }
-  }
+  final List<JobModel> jobs;
+  final bool loading;
+  final String? error;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    if (loading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_error != null) {
+    if (error != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -64,7 +35,7 @@ class _JobsPageState extends State<JobsPage> {
                   size: 48, color: JobTrackColors.navyMuted),
               const SizedBox(height: 12),
               Text(
-                _error!,
+                error!,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,
@@ -73,7 +44,7 @@ class _JobsPageState extends State<JobsPage> {
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _load,
+                onPressed: onRefresh,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: JobTrackColors.blue,
                   foregroundColor: Colors.white,
@@ -86,7 +57,7 @@ class _JobsPageState extends State<JobsPage> {
       );
     }
 
-    if (_jobs.isEmpty) {
+    if (jobs.isEmpty) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 32),
@@ -100,25 +71,23 @@ class _JobsPageState extends State<JobsPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: onRefresh,
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemCount: _jobs.length,
+        itemCount: jobs.length,
         separatorBuilder: (context, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          final job = _jobs[index];
+          final job = jobs[index];
           return _JobCard(
             job: job,
-            onTap: () => _openDetail(context, job),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
+              );
+            },
           );
         },
       ),
-    );
-  }
-
-  void _openDetail(BuildContext context, JobModel job) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
     );
   }
 }
@@ -252,7 +221,8 @@ class JobDetailPage extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime? date) {
+    if (date == null) return '-';
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
