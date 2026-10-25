@@ -3,6 +3,7 @@ import type { TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import dotenv from "dotenv";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { db } from "../config/database.js";
 import {
@@ -53,31 +54,27 @@ const TEST_EMAIL_DOMAIN = "@example.test";
 const TEST_USERNAME_PREFIX = "JTTEST";
 
 /**
- * Membaca DB_NAME dari file .env di direktori kerja (backend/.env ketika
- * dijalankan lewat npm). Nilai terakhir yang ditemukan dipakai, meniru
- * perilaku dotenv yang mendahulukan entri terakhir. Nilainya hanya dipakai
- * untuk perbandingan dan tidak pernah dicetak.
+ * Membaca DB_NAME dari isi file .env di direktori kerja (backend/.env ketika
+ * dijalankan lewat npm) menggunakan parser dotenv yang sama dengan yang
+ * dipakai config/database.ts. Dengan begitu komentar inline, tanda kutip,
+ * prefix "export", dan aturan parsing dotenv lainnya diproses persis seperti
+ * saat konfigurasi dimuat. Nilainya hanya dipakai untuk perbandingan dan
+ * tidak pernah dicetak.
  *
- * Mengembalikan null bila .env tidak bisa dibaca atau tidak berisi DB_NAME,
- * supaya pemanggil dapat berperilaku fail-closed.
+ * Mengembalikan null bila .env tidak bisa dibaca, gagal diproses, atau tidak
+ * berisi DB_NAME, supaya pemanggil dapat berperilaku fail-closed.
  */
 function getEnvFileDbName(): string | null {
   try {
     const content = readFileSync(resolve(process.cwd(), ".env"), "utf8");
+    const parsed = dotenv.parse(content);
+    const dbName = parsed["DB_NAME"];
 
-    let found: string | null = null;
+    if (typeof dbName !== "string") return null;
 
-    for (const line of content.split(/\r?\n/)) {
-      const match = line.match(/^\s*(?:export\s+)?DB_NAME\s*=\s*(.*)$/);
+    const trimmed = dbName.trim();
 
-      if (!match) continue;
-
-      const value = match[1].trim().replace(/^["']|["']$/g, "");
-
-      found = value || null;
-    }
-
-    return found;
+    return trimmed || null;
   } catch {
     return null;
   }
@@ -130,6 +127,15 @@ describe("integrasi database job_applications", {
   }
 
   before(async () => {
+    // Lapisan tambahan, bukan pengganti skip suite di atas: hook ini tidak
+    // boleh menyiapkan fixture atau menyentuh database kecuali pengujian
+    // tulis sudah diaktifkan secara eksplisit.
+    if (!RUN_DB_TESTS) {
+      dbSkipReason =
+        "Butuh RUN_DB_TESTS=1 — fixture database tidak disiapkan.";
+      return;
+    }
+
     if (!TEST_DB_NAME) return;
 
     const envFileDbName = getEnvFileDbName();
