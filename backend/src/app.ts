@@ -5,6 +5,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { authRouter } from "./routes/auth.routes.js";
 import { jobRouter } from "./routes/job.routes.js";
+import { applicationRouter } from "./routes/application.routes.js";
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.get("/", (_req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/jobs", jobRouter);
+app.use("/api/applications", applicationRouter);
 
 // Penanda yang dipakai express.json() saat body JSON tidak bisa di-parse.
 function isJsonParseError(error: unknown): boolean {
