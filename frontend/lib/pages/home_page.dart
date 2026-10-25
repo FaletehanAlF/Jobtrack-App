@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 
+import 'applications_page.dart';
 import 'login_page.dart';
 import 'onboarding_screen.dart';
+import 'home_tab.dart';
+import 'jobs_page.dart';
+import 'profile_page.dart';
+import 'saved_jobs_page.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../theme/jobtrack_theme.dart';
 
-/// Halaman utama setelah login.
+/// Shell utama setelah login.
 ///
-/// Versi sederhana untuk menuntaskan alur autentikasi: menampilkan data
-/// pengguna yang berhasil masuk dan tombol keluar. Fitur berikutnya
-/// (daftar lowongan, dsb.) tinggal ditambahkan di [HomePage] ini.
+/// Menyediakan Bottom Navigation Bar untuk pencari kerja:
+/// Beranda, Lowongan, Lamaran, Tersimpan, Profil.
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.user});
 
-  /// Pengguna yang login. Boleh kosong bila halaman dibuka tanpa data
-  /// (misalnya dari hot restart); aplikasi lalu mencoba mengambilnya
-  /// dari token yang tersimpan.
   final UserModel? user;
 
   @override
@@ -25,8 +26,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _authService = AuthService();
+
   UserModel? _user;
-  bool _loading = true;
+  bool _loadingUser = true;
+  int _currentIndex = 0;
 
   @override
   void initState() {
@@ -35,34 +38,26 @@ class _HomePageState extends State<HomePage> {
     _loadUser();
   }
 
-  /// Mengambil data pengguna dari token tersimpan (GET /auth/me).
-  ///
-  /// Bila token tidak ada atau sudah kedaluwarsa, pengguna dikembalikan
-  /// ke halaman login supaya tidak berada di halaman utama tanpa sesi.
   Future<void> _loadUser() async {
     if (_user != null) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loadingUser = false);
       return;
     }
 
     try {
       final user = await _authService.getCurrentUser();
-
       if (!mounted) return;
-
       if (user == null) {
         _goToLogin();
         return;
       }
-
       setState(() {
         _user = user;
-        _loading = false;
+        _loadingUser = false;
       });
     } catch (_) {
-      // Server tidak terjangkau: tetap tampilkan halaman dengan data
-      // yang ada, jangan memaksa keluar hanya karena jaringan mati.
-      if (mounted) setState(() => _loading = false);
+      // Server tidak terjangkau: tetap tampilkan shell dengan data yang ada.
+      if (mounted) setState(() => _loadingUser = false);
     }
   }
 
@@ -79,8 +74,6 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
 
-    // Hapus semua riwayat agar Back tidak kembali ke halaman utama
-    // setelah keluar.
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const OnboardingScreen()),
@@ -88,37 +81,83 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Import ditunda ke atas; LoginPage/OnboardingScreen diimport di sini
+  // agar tidak menambah import siklik yang tidak perlu.
+  static const _titles = <String>[
+    'JobTrack',
+    'Lowongan',
+    'Lamaran',
+    'Tersimpan',
+    'Profil',
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final user = _user;
+    if (_loadingUser && _user == null) {
+      return const Scaffold(
+        backgroundColor: JobTrackColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final pages = <Widget>[
+      HomeTab(user: _user),
+      const JobsPage(),
+      const ApplicationsPage(),
+      const SavedJobsPage(),
+      ProfilePage(user: _user, onLogout: _logout),
+    ];
 
     return Scaffold(
       backgroundColor: JobTrackColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: JobTrackColors.navy),
-        actions: [
-          IconButton(
-            tooltip: 'Keluar',
-            onPressed: _logout,
-            icon: const Icon(Icons.logout, color: JobTrackColors.navy),
+        foregroundColor: JobTrackColors.navy,
+        title: Text(
+          _titles[_currentIndex],
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: JobTrackColors.navy,
+          ),
+        ),
+      ),
+      body: IndexedStack(index: _currentIndex, children: pages),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: JobTrackColors.blue,
+        unselectedItemColor: JobTrackColors.navyMuted,
+        backgroundColor: JobTrackColors.surface,
+        showUnselectedLabels: true,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Beranda',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.work_outline),
+            activeIcon: Icon(Icons.work),
+            label: 'Lowongan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment),
+            label: 'Lamaran',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bookmark_border),
+            activeIcon: Icon(Icons.bookmark),
+            label: 'Tersimpan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profil',
           ),
         ],
-      ),
-      body: Center(
-        child: _loading
-            ? const CircularProgressIndicator()
-            : Text(
-                user == null
-                    ? 'Selamat datang di JobTrack'
-                    : 'Halo, ${user.username}!',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: JobTrackColors.navy,
-                ),
-              ),
       ),
     );
   }
