@@ -1,6 +1,8 @@
 import { describe, it, before, after } from "node:test";
 import type { TestContext } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { db } from "../config/database.js";
 import {
@@ -9,75 +11,216 @@ import {
 } from "../controllers/application.controller.js";
 import { callController, makeReq } from "./helpers.js";
 
-// Pengujian ini menulis data ke database, jadi tidak pernah dijalankan
-// otomatis. Untuk menjalankannya secara sadar (setelah migration disetujui
-// dan dieksekusi pada database test):
-//
-//   set RUN_DB_TESTS=1 && npm run test:db
-//
-// Database yang dipakai tetap identitas koneksi di backend/.env. Pakai
-// salinan database test, bukan database yang disepakati tidak boleh diubah.
+/**
+ * ==========================================================================
+ * Pengaman fail-closed untuk pengujian yang menulis data ke database
+ * ==========================================================================
+ * Pengujian ini membuat dan menghapus baris, jadi tidak pernah dijalankan
+ * otomatis. Semua syarat berikut HARUS terpenuhi; jika salah satu gagal,
+ * seluruh kasus dilewati dan TIDAK ADA satu pun query tulis yang dijalankan:
+ *
+ *   1. RUN_DB_TESTS=1 — pengujian tulis diaktifkan secara sadar.
+ *
+ *   2. DB_NAME_TESTS=<nama> — nama database test yang diizinkan secara
+ *      eksplisit, mis. salinan schema seperti jobtrack_test.
+ *      RUN_DB_TESTS saja tidak cukup untuk mengizinkan penulisan.
+ *
+ *   3. DB_NAME_TESTS berbeda dari DB_NAME di backend/.env — database
+ *      development tidak diizinkan menjadi target tes meskipun disebut
+ *      secara eksplisit. Nilai DB_NAME dari .env hanya untuk perbandingan
+ *      dan tidak pernah dicetak ke log.
+ *
+ *   4. Nama database yang benar-benar terhubung diverifikasi lewat
+ *      SELECT DATABASE() pada pool yang sama dengan yang dipakai controller
+ *      (config/database.ts), dan HARUS sama dengan DB_NAME_TESTS.
+ *      Karena controller memakai pool yang dikonfigurasi dari DB_NAME,
+ *      jalankan tes dengan DB_NAME proses diarahkan ke database test:
+ *
+ *        # PowerShell
+ *        $env:RUN_DB_TESTS  = "1"
+ *        $env:DB_NAME_TESTS = "jobtrack_test"
+ *        $env:DB_NAME       = "jobtrack_test"
+ *        npm run test:db
+ *
+ *      Verifikasi ini juga menarik ketidakpastian urutan pemuatan .env oleh
+ *      tsx (injected env): sampai koneksi benar-benar menunjuk database test,
+ *      pengujian tetap berhenti sebelum operasi tulis apa pun.
+ * ==========================================================================
+ */
 const RUN_DB_TESTS = process.env.RUN_DB_TESTS === "1";
-const SKIP_MIGRATION_MESSAGE =
-  "Butuh RUN_DB_TESTS=1 dan tabel job_applications yang sudah dibuat oleh migration table-job-applications.sql.";
+const TEST_DB_NAME = process.env.DB_NAME_TESTS;
+const TEST_EMAIL_DOMAIN = "@example.test";
+const TEST_USERNAME_PREFIX = "JTTEST";
+
+/**
+ * Membaca DB_NAME dari file .env di direktori kerja (backend/.env ketika
+ * dijalankan lewat npm). Nilai terakhir yang ditemukan dipakai, meniru
+ * perilaku dotenv yang mendahulukan entri terakhir. Nilainya hanya dipakai
+ * untuk perbandingan dan tidak pernah dicetak.
+ *
+ * Mengembalikan null bila .env tidak bisa dibaca atau tidak berisi DB_NAME,
+ * supaya pemanggil dapat berperilaku fail-closed.
+ */
+function getEnvFileDbName(): string | null {
+  try {
+    const content = readFileSync(resolve(process.cwd(), ".env"), "utf8");
+
+    let found: string | null = null;
+
+    for (const line of content.split(/\r?\n/)) {
+      const match = line.match(/^\s*(?:export\s+)?DB_NAME\s*=\s*(.*)$/);
+
+      if (!match) continue;
+
+      const value = match[1].trim().replace(/^["']|["']$/g, "");
+
+      found = value || null;
+    }
+
+    return found;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Identitas user tes yang berhasil dibuat. Pembersihan hanya menyasar baris
+ * ini, dengan pencocokan berlapis (id + email unik + domain email tes +
+ * awalan username + role). Jika salah satu INSERT gagal atau kepemilikan
+ * tidak dapat dibuktikan, baris tersebut tetap tidak disentuh pembersihan.
+ */
+interface TestUser {
+  userId: number;
+  email: string;
+  role: "recruiter" | "jobseeker";
+}
 
 describe("integrasi database job_applications", {
-  skip: RUN_DB_TESTS ? false : SKIP_MIGRATION_MESSAGE,
+  skip: RUN_DB_TESTS
+    ? false
+    : "Butuh RUN_DB_TESTS=1 — pengujian database tidak dijalankan otomatis.",
 }, () => {
-  // Penanda unik supaya data tester tidak bertabrakan dengan data lain maupun
-  // sisa run sebelumnya yang tidak sempat dibersihkan.
+  // Identitas unik per run; email hasilnya tidak akan sama dengan data lain.
   const runId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const recruiterEmail = `jttestrec_${runId}${TEST_EMAIL_DOMAIN}`;
+  const applicantEmail = `jttestappl_${runId}${TEST_EMAIL_DOMAIN}`;
+  const otherEmail = `jttestoth_${runId}${TEST_EMAIL_DOMAIN}`;
+
+  // Alasan bawaan saat suite berjalan tetapi konfigurasi belum lengkap.
+  let dbSkipReason = RUN_DB_TESTS
+    ? "DB_NAME_TESTS tidak diatur. Nama database test wajib eksplisit; RUN_DB_TESTS saja tidak cukup untuk mengizinkan penulisan."
+    : "Butuh RUN_DB_TESTS=1.";
+  let dbReady = false;
+  const testUsers: TestUser[] = [];
 
   let recruiterUserId = 0;
   let applicantUserId = 0;
   let otherApplicantUserId = 0;
   let jobIdA = 0;
   let jobIdB = 0;
-  let dbReady = false;
+  // Lowongan yang dibuat lalu dihapus oleh suite ini sendiri; id-nya menjadi
+  // skenario "lowongan tidak ditemukan" yang deterministik.
+  let removedJobId = 0;
 
   function ensureDb(t: TestContext): boolean {
     if (dbReady) return true;
 
-    t.skip(
-      "Tabel job_applications belum ada. Jalankan migration dulu (butuh persetujuan terpisah).",
-    );
+    t.skip(dbSkipReason);
     return false;
   }
 
   before(async () => {
-    try {
-      await db.query("SELECT 1 FROM job_applications LIMIT 1");
-      dbReady = true;
-    } catch {
-      // Tabel belum dibuat: migration belum dieksekusi. Semua kasus di bawah
-      // dilewati dengan alasan yang jelas, bukan gagal.
-      dbReady = false;
+    if (!TEST_DB_NAME) return;
+
+    const envFileDbName = getEnvFileDbName();
+
+    if (!envFileDbName) {
+      dbSkipReason =
+        "Tidak dapat memverifikasi DB_NAME dari backend/.env. Konfigurasi ambigu, pengujian dihentikan tanpa operasi tulis.";
       return;
     }
 
-    // Bersihkan sisa data tester dari run yang crash sebelumnya. FK
-    // ON DELETE CASCADE menghapus jobs dan lamarannya ikut dalam satu langkah.
-    await db.query<ResultSetHeader>(
-      "DELETE FROM users WHERE username LIKE 'JTTEST%'",
-    );
+    // Database development dari .env tidak boleh dijadikan target tes,
+    // walau disebut secara eksplisit lewat DB_NAME_TESTS.
+    if (TEST_DB_NAME === envFileDbName) {
+      dbSkipReason =
+        "DB_NAME_TESTS sama dengan DB_NAME di .env (database development). Konfigurasi ambigu: nama database test harus berbeda dari database development.";
+      return;
+    }
+
+    // Preflight: pool terhubung ke schema dari DB_NAME proses. Jika belum
+    // diarahkan ke database test yang diizinkan, berhenti tanpa menyentuh
+    // database sama sekali.
+    if (process.env.DB_NAME && process.env.DB_NAME !== TEST_DB_NAME) {
+      dbSkipReason = `DB_NAME proses tidak diarahkan ke database test yang diizinkan. Set DB_NAME sama dengan DB_NAME_TESTS (${TEST_DB_NAME}) saat menjalankan tes.`;
+      return;
+    }
+
+    try {
+      // Verifikasi database aktif lewat koneksi yang benar-benar akan dipakai
+      // controller saat menulis data.
+      const [rows] = await db.query<RowDataPacket[]>(
+        "SELECT DATABASE() AS activeDb",
+      );
+      const activeDb = rows[0] ? String(rows[0].activeDb || "") : "";
+
+      if (activeDb !== TEST_DB_NAME) {
+        dbSkipReason = `Database aktif yang benar-benar terhubung (${activeDb || "tidak diketahui"}) bukan database test yang diizinkan (${TEST_DB_NAME}). Pengujian berhenti tanpa operasi tulis.`;
+        return;
+      }
+    } catch {
+      // Koneksi gagal: jangan lanjut ke penulisan apa pun.
+      dbSkipReason =
+        "Koneksi database gagal atau nama database aktif tidak dapat diverifikasi.";
+      return;
+    }
+
+    try {
+      // Cek keberadaan tabel (hanya baca) setelah semua syarat lolos.
+      await db.query("SELECT 1 FROM job_applications LIMIT 1");
+    } catch {
+      dbSkipReason =
+        "Tabel job_applications belum ada. Jalankan migration table-job-applications.sql dulu (butuh persetujuan terpisah).";
+      return;
+    }
+
+    dbReady = true;
+
+    // ---- Fixture (semua query di bawah sudah terverifikasi menulis ke ----
+    // ---- database test yang diizinkan secara eksplisit)              ----
 
     const [recruiterInsert] = await db.query<ResultSetHeader>(
       "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, 'x', 'recruiter')",
-      [`JTTESTREC_${runId}`, `JTTESTREC_${runId}@example.test`],
+      [`${TEST_USERNAME_PREFIX}REC_${runId}`, recruiterEmail],
     );
     recruiterUserId = recruiterInsert.insertId;
+    testUsers.push({
+      userId: recruiterUserId,
+      email: recruiterEmail,
+      role: "recruiter",
+    });
 
     const [applicantInsert] = await db.query<ResultSetHeader>(
       "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, 'x', 'jobseeker')",
-      [`JTTESTAPPL_${runId}`, `JTTESTAPPL_${runId}@example.test`],
+      [`${TEST_USERNAME_PREFIX}APPL_${runId}`, applicantEmail],
     );
     applicantUserId = applicantInsert.insertId;
+    testUsers.push({
+      userId: applicantUserId,
+      email: applicantEmail,
+      role: "jobseeker",
+    });
 
     const [otherInsert] = await db.query<ResultSetHeader>(
       "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, 'x', 'jobseeker')",
-      [`JTTESTOTH_${runId}`, `JTTESTOTH_${runId}@example.test`],
+      [`${TEST_USERNAME_PREFIX}OTH_${runId}`, otherEmail],
     );
     otherApplicantUserId = otherInsert.insertId;
+    testUsers.push({
+      userId: otherApplicantUserId,
+      email: otherEmail,
+      role: "jobseeker",
+    });
 
     const [jobAInsert] = await db.query<ResultSetHeader>(
       "INSERT INTO jobs (recruiter_id, title, description, company, location) VALUES (?, ?, ?, ?, ?)",
@@ -102,14 +245,64 @@ describe("integrasi database job_applications", {
       ],
     );
     jobIdB = jobBInsert.insertId;
+
+    // Skenerio "lowongan tidak ditemukan" dibuat deterministik: lowungan
+    // milik suite ini sendiri dibuat lalu segera dihapus, dengan pencocokan
+    // id + pemilik + judul supaya baris yang dihapus jelas miliknya.
+    const [removedJobInsert] = await db.query<ResultSetHeader>(
+      "INSERT INTO jobs (recruiter_id, title, description, company, location) VALUES (?, ?, ?, ?, ?)",
+      [
+        recruiterUserId,
+        "JT Test Lowongan Dihapus",
+        "Deskripsi lowongan yang segera dihapus untuk skenario tidak ditemukan.",
+        "JT Test Co",
+        "Testville",
+      ],
+    );
+    removedJobId = removedJobInsert.insertId;
+
+    const [removeResult] = await db.query<ResultSetHeader>(
+      "DELETE FROM jobs WHERE id = ? AND recruiter_id = ? AND title = ?",
+      [removedJobId, recruiterUserId, "JT Test Lowongan Dihapus"],
+    );
+
+    if (removeResult.affectedRows !== 1) {
+      // Skenario 404 tidak valid; berhenti dengan alasan jelas, jangan
+      // melanjutkan pengujian dengan data yang tidak bisa dijamin.
+      dbReady = false;
+      dbSkipReason =
+        "Gagal menyiapkan lowongan untuk skenario tidak ditemukan. Pengujian dilewati.";
+      return;
+    }
   });
 
   after(async () => {
-    if (dbReady) {
-      // Bersihkan data tester. CASCADE juga menghapus jobs dan lamarannya.
-      await db.query<ResultSetHeader>(
-        "DELETE FROM users WHERE username LIKE 'JTTEST%'",
+    // Pembersihan HANYA menyasar user yang benar-benar dibuat run ini:
+    //   - id persis dari insertId saat INSERT-nya berhasil (baris dengan
+    //     insert gagal tidak pernah tercatat, jadi tidak akan dihapus),
+    //   - email unik per run yang sama dengan yang dipasang saat INSERT
+    //     (kolom email bersifat UNIQUE di schema users),
+    //   - domain email khusus tes,
+    //   - awalan username identitas tes,
+    //   - role yang memang dipasang saat INSERT.
+    // Kepemilikan yang tidak terbukti tidak dipindai maupun dihapus.
+    for (const user of testUsers) {
+      const [deleteResult] = await db.query<ResultSetHeader>(
+        "DELETE FROM users WHERE id = ? AND email = ? AND email LIKE ? AND username LIKE ? AND role = ?",
+        [
+          user.userId,
+          user.email,
+          `%${TEST_EMAIL_DOMAIN}`,
+          `${TEST_USERNAME_PREFIX}%`,
+          user.role,
+        ],
       );
+
+      if (deleteResult.affectedRows !== 1) {
+        console.warn(
+          `[cleanup] user tes id=${user.userId} tidak terhapus bersih (affectedRows=${deleteResult.affectedRows}); sisa datanya harus dinilai manual`,
+        );
+      }
     }
 
     // Tutup pool supaya proses pengujian berhenti bersih.
@@ -132,14 +325,11 @@ describe("integrasi database job_applications", {
   it("menolak job yang tidak ditemukan dengan 404", async (t) => {
     if (!ensureDb(t)) return;
 
-    const [rows] = await db.query<RowDataPacket[]>(
-      "SELECT COALESCE(MAX(id), 0) + 1 AS missingId FROM jobs",
-    );
-    const missingId = Number(rows[0].missingId);
-
+    // id lowongan milik suite ini yang dibuat lalu dihapus di before(); tidak
+    // bergantung pada MAX(id)+1 dan selalu aman terhadap data milik orang lain.
     const capture = await callController(
       createApplication,
-      makeReq({ id: applicantUserId, role: "jobseeker" }, { job_id: missingId }),
+      makeReq({ id: applicantUserId, role: "jobseeker" }, { job_id: removedJobId }),
     );
 
     assert.equal(capture.status, 404);
@@ -206,7 +396,7 @@ describe("integrasi database job_applications", {
     if (!ensureDb(t)) return;
 
     // Lima request paralel dengan pasangan pelamar dan lowongan yang sama.
-    // Constraint UNIQUE di database yang menentukan sertu atau tidaknya.
+    // Constraint UNIQUE di database yang menentukan silang atau tidaknya.
     const attempts = await Promise.all(
       Array.from({ length: 5 }, () =>
         callController(
