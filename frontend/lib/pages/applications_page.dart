@@ -127,7 +127,9 @@ class ApplicationsPage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      if (!loading && error == null && applications.isNotEmpty) ...[
+                      if (!loading &&
+                          error == null &&
+                          applications.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 8,
@@ -164,9 +166,11 @@ class ApplicationsPage extends StatelessWidget {
                       else
                         Column(
                           children: [
-                            for (var index = 0;
-                                index < applications.length;
-                                index++) ...[
+                            for (
+                              var index = 0;
+                              index < applications.length;
+                              index++
+                            ) ...[
                               if (index > 0) const SizedBox(height: 10),
                               ApplicationCard(
                                 application: applications[index],
@@ -240,10 +244,7 @@ class _PageLoading extends StatelessWidget {
           SizedBox(height: 12),
           Text(
             'Memuat riwayat lamaran...',
-            style: TextStyle(
-              fontSize: 13,
-              color: JobTrackColors.navyMuted,
-            ),
+            style: TextStyle(fontSize: 13, color: JobTrackColors.navyMuted),
           ),
         ],
       ),

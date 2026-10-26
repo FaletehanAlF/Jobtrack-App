@@ -6,11 +6,7 @@ import '../theme/jobtrack_theme.dart';
 /// Chip status lamaran. Hanya status yang didukung backend yang punya
 /// tampilan khusus; status tak dikenal tetap ditampilkan sebagai teks.
 class ApplicationStatusChip extends StatelessWidget {
-  const ApplicationStatusChip({
-    super.key,
-    required this.status,
-    this.label,
-  });
+  const ApplicationStatusChip({super.key, required this.status, this.label});
 
   final String status;
   final String? label;
@@ -22,18 +18,18 @@ class ApplicationStatusChip extends StatelessWidget {
     final color = isRejected
         ? JobTrackColors.danger
         : isSubmitted
-            ? JobTrackColors.blue
-            : JobTrackColors.navyMuted;
+        ? JobTrackColors.blue
+        : JobTrackColors.navyMuted;
     final background = isRejected
         ? JobTrackColors.dangerSoft
         : isSubmitted
-            ? JobTrackColors.blueSoft
-            : const Color(0xFFF1F5F9);
+        ? JobTrackColors.blueSoft
+        : const Color(0xFFF1F5F9);
     final icon = isRejected
         ? Icons.cancel_outlined
         : isSubmitted
-            ? Icons.send_outlined
-            : Icons.help_outline;
+        ? Icons.send_outlined
+        : Icons.help_outline;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
@@ -73,11 +69,7 @@ class ApplicationStatusChip extends StatelessWidget {
 
 /// Kartu satu lamaran, dipakai di dashboard dan halaman riwayat.
 class ApplicationCard extends StatelessWidget {
-  const ApplicationCard({
-    super.key,
-    required this.application,
-    this.onTap,
-  });
+  const ApplicationCard({super.key, required this.application, this.onTap});
 
   final ApplicationModel application;
   final VoidCallback? onTap;
@@ -186,10 +178,7 @@ class _MetaItem extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           text,
-          style: const TextStyle(
-            fontSize: 12,
-            color: JobTrackColors.navyMuted,
-          ),
+          style: const TextStyle(fontSize: 12, color: JobTrackColors.navyMuted),
         ),
       ],
     );

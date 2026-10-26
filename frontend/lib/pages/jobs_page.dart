@@ -31,8 +31,11 @@ class JobsPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off_outlined,
-                  size: 48, color: JobTrackColors.navyMuted),
+              const Icon(
+                Icons.cloud_off_outlined,
+                size: 48,
+                color: JobTrackColors.navyMuted,
+              ),
               const SizedBox(height: 12),
               Text(
                 error!,
@@ -158,8 +161,11 @@ class _JobCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.location_on_outlined,
-                      size: 16, color: JobTrackColors.navyMuted),
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 16,
+                    color: JobTrackColors.navyMuted,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(

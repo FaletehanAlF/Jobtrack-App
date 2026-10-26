@@ -87,8 +87,8 @@ class _HomeTabState extends State<HomeTab> {
 
     if (_query.isNotEmpty) {
       result = result.where((job) {
-        final haystack =
-            '${job.title} ${job.company} ${job.location}'.toLowerCase();
+        final haystack = '${job.title} ${job.company} ${job.location}'
+            .toLowerCase();
         return haystack.contains(_query);
       });
     }
@@ -96,8 +96,7 @@ class _HomeTabState extends State<HomeTab> {
     return result.toList();
   }
 
-  bool get _hasFilters =>
-      _query.isNotEmpty || _selectedLocation != null;
+  bool get _hasFilters => _query.isNotEmpty || _selectedLocation != null;
 
   @override
   Widget build(BuildContext context) {
@@ -146,9 +145,8 @@ class _HomeTabState extends State<HomeTab> {
                                 searchController: _searchController,
                                 locations: _locations,
                                 selectedLocation: _selectedLocation,
-                                onLocationSelected: (value) => setState(
-                                  () => _selectedLocation = value,
-                                ),
+                                onLocationSelected: (value) =>
+                                    setState(() => _selectedLocation = value),
                                 jobs: _filteredJobs,
                                 loading: widget.loadingJobs,
                                 error: widget.jobsError,
@@ -181,9 +179,8 @@ class _HomeTabState extends State<HomeTab> {
                           searchController: _searchController,
                           locations: _locations,
                           selectedLocation: _selectedLocation,
-                          onLocationSelected: (value) => setState(
-                            () => _selectedLocation = value,
-                          ),
+                          onLocationSelected: (value) =>
+                              setState(() => _selectedLocation = value),
                           jobs: _filteredJobs,
                           loading: widget.loadingJobs,
                           error: widget.jobsError,
@@ -237,10 +234,7 @@ class _Greeting extends StatelessWidget {
         const SizedBox(height: 4),
         const Text(
           'Pantau lamaran dan temukan peluang karier berikutnya.',
-          style: TextStyle(
-            fontSize: 14.5,
-            color: JobTrackColors.navyMuted,
-          ),
+          style: TextStyle(fontSize: 14.5, color: JobTrackColors.navyMuted),
         ),
       ],
     );
@@ -277,10 +271,7 @@ class _ApplicationsOverview extends StatelessWidget {
         const SizedBox(height: 3),
         const Text(
           'Berdasarkan seluruh riwayat lamaran akun ini.',
-          style: TextStyle(
-            fontSize: 12.5,
-            color: JobTrackColors.navyMuted,
-          ),
+          style: TextStyle(fontSize: 12.5, color: JobTrackColors.navyMuted),
         ),
         const SizedBox(height: 12),
         if (loading)
@@ -516,8 +507,7 @@ class _RecentApplicationsPanel extends StatelessWidget {
         else if (applications.isEmpty)
           _EmptyState(
             icon: Icons.assignment_outlined,
-            message:
-                'Belum ada lamaran. Temukan lowongan yang cocok lalu kirim lamaran pertamamu.',
+            message: 'Belum ada lamaran. Temukan lowongan yang cocok lalu kirim lamaran pertamamu.',
             actionLabel: 'Jelajahi lowongan',
             actionKey: const Key('dashboard-empty-applications-cta'),
             onAction: onShowJobs,
@@ -525,9 +515,11 @@ class _RecentApplicationsPanel extends StatelessWidget {
         else
           Column(
             children: [
-              for (var index = 0;
-                  index < applications.take(5).length;
-                  index++) ...[
+              for (
+                var index = 0;
+                index < applications.take(5).length;
+                index++
+              ) ...[
                 if (index > 0) const SizedBox(height: 10),
                 ApplicationCard(
                   application: applications[index],
@@ -579,10 +571,7 @@ class _SectionHeader extends StatelessWidget {
           ),
           child: Text(
             actionLabel,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -612,8 +601,10 @@ class _SearchBar extends StatelessWidget {
               ),
         filled: true,
         fillColor: JobTrackColors.surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: JobTrackColors.border),
@@ -917,10 +908,7 @@ class _HomeJobCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right,
-                color: JobTrackColors.navyMuted,
-              ),
+              const Icon(Icons.chevron_right, color: JobTrackColors.navyMuted),
             ],
           ),
         ),

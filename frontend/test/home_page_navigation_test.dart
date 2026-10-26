@@ -42,7 +42,9 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Lowongan hanya dimuat satu kali di shell', (WidgetTester tester) async {
+  testWidgets('Lowongan hanya dimuat satu kali di shell', (
+    WidgetTester tester,
+  ) async {
     final service = _RecordingJobService();
     final user = UserModel(
       id: 1,
@@ -107,40 +109,41 @@ void main() {
     expect(find.byType(LoginPage), findsOneWidget);
   });
 
-  testWidgets('Logout membuka onboarding dan tombol Mulai Sekarang membuka RegisterPage', (
-    WidgetTester tester,
-  ) async {
-    final user = UserModel(
-      id: 1,
-      username: 'tester',
-      email: 'tester@example.com',
-      role: 'jobseeker',
-      createdAt: DateTime(2020),
-    );
+  testWidgets(
+    'Logout membuka onboarding dan tombol Mulai Sekarang membuka RegisterPage',
+    (WidgetTester tester) async {
+      final user = UserModel(
+        id: 1,
+        username: 'tester',
+        email: 'tester@example.com',
+        role: 'jobseeker',
+        createdAt: DateTime(2020),
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: HomePage(
-          user: user,
-          jobService: _EmptyJobService(),
-          applicationService: _EmptyApplicationService(),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomePage(
+            user: user,
+            jobService: _EmptyJobService(),
+            applicationService: _EmptyApplicationService(),
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Profil'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Profil'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Keluar'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Keluar'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Selamat Datang'), findsOneWidget);
+      expect(find.text('Selamat Datang'), findsOneWidget);
 
-    await tester.tap(find.text('Mulai Sekarang'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Mulai Sekarang'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(RegisterPage), findsOneWidget);
-  });
+      expect(find.byType(RegisterPage), findsOneWidget);
+    },
+  );
 }

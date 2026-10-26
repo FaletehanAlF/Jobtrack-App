@@ -143,7 +143,8 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final applicationService = widget.applicationService ?? ApplicationService();
+    final applicationService =
+        widget.applicationService ?? ApplicationService();
 
     if (mounted) {
       setState(() {
@@ -181,9 +182,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openJob(JobModel job) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => JobDetailPage(job: job)));
   }
 
   Future<void> _openApplication(ApplicationModel application) async {
@@ -200,13 +200,13 @@ class _HomePageState extends State<HomePage> {
 
     if (job == null) {
       try {
-        job = await (widget.jobService ?? JobService())
-            .fetchJob(application.jobId);
+        job = await (widget.jobService ?? JobService()).fetchJob(
+          application.jobId,
+        );
       } catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
         return;
       }
     }
@@ -360,9 +360,7 @@ class _HomePageState extends State<HomePage> {
                           height: 40,
                           decoration: const BoxDecoration(
                             color: JobTrackColors.blueSoft,
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(10),
-                            ),
+                            borderRadius: BorderRadius.all(Radius.circular(10)),
                           ),
                           alignment: Alignment.center,
                           child: const Text(
