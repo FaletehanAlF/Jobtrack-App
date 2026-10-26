@@ -2,16 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:frontend/models/application_model.dart';
 import 'package:frontend/models/job_model.dart';
 import 'package:frontend/models/user_model.dart';
 import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/login_page.dart';
 import 'package:frontend/pages/register_page.dart';
+import 'package:frontend/services/application_service.dart';
 import 'package:frontend/services/job_service.dart';
 
 class _EmptyJobService extends JobService {
   @override
   Future<List<JobModel>> fetchJobs() async {
+    return [];
+  }
+}
+
+class _EmptyApplicationService extends ApplicationService {
+  @override
+  Future<List<ApplicationModel>> fetchApplications() async {
     return [];
   }
 }

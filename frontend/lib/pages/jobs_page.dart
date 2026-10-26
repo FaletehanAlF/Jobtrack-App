@@ -70,24 +70,47 @@ class JobsPage extends StatelessWidget {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: jobs.length,
-        separatorBuilder: (context, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final job = jobs[index];
-          return _JobCard(
-            job: job,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
-              );
-            },
-          );
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalPadding = constraints.maxWidth >= 900 ? 32.0 : 16.0;
+
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              16,
+              horizontalPadding,
+              32,
+            ),
+            children: [
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < jobs.length; index++) ...[
+                        if (index > 0) const SizedBox(height: 12),
+                        _JobCard(
+                          job: jobs[index],
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => JobDetailPage(job: jobs[index]),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -175,45 +198,58 @@ class JobDetailPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text(
-            job.title,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: JobTrackColors.navy,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            job.company,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: JobTrackColors.blue,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _DetailRow(icon: Icons.location_on_outlined, text: job.location),
-          _DetailRow(
-            icon: Icons.calendar_today_outlined,
-            text: _formatDate(job.createdAt),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Deskripsi',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: JobTrackColors.navy,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            job.description,
-            style: const TextStyle(
-              fontSize: 14.5,
-              height: 1.6,
-              color: JobTrackColors.navy,
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 820),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    job.title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: JobTrackColors.navy,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    job.company,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: JobTrackColors.blue,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _DetailRow(
+                    icon: Icons.location_on_outlined,
+                    text: job.location,
+                  ),
+                  _DetailRow(
+                    icon: Icons.calendar_today_outlined,
+                    text: _formatDate(job.createdAt),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Deskripsi',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: JobTrackColors.navy,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    job.description,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      height: 1.6,
+                      color: JobTrackColors.navy,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
