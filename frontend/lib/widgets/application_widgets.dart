@@ -43,7 +43,7 @@ class ApplicationStatusChip extends StatelessWidget {
           Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
           Text(
-            label ?? _labelFor(status),
+            label ?? applicationStatusLabel(status),
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
@@ -53,17 +53,6 @@ class ApplicationStatusChip extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static String _labelFor(String status) {
-    switch (status) {
-      case ApplicationStatus.submitted:
-        return 'Dikirim';
-      case ApplicationStatus.rejected:
-        return 'Ditolak';
-      default:
-        return status.isEmpty ? 'Tidak diketahui' : status;
-    }
   }
 }
 

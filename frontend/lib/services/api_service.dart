@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,19 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// File biner dari endpoint unduhan, lengkap dengan nama dari server.
+class ApiDownload {
+  final Uint8List bytes;
+  final String fileName;
+  final String contentType;
+
+  const ApiDownload({
+    required this.bytes,
+    required this.fileName,
+    required this.contentType,
+  });
 }
 
 /// Pembungkus semua komunikasi HTTP ke backend JobTrack.
@@ -141,6 +155,103 @@ class ApiService {
   Future<dynamic> get(String endpoint) async {
     final headers = await _headers();
     return _send(() => http.get(Uri.parse('$_baseUrl$endpoint'), headers: headers));
+  }
+
+  /// GET file biner, mis. laporan Excel.
+  ///
+  /// Nama file diambil dari header `Content-Disposition` yang diekspos CORS.
+  /// [fallbackFileName] dipakai bila server/proxy tidak mengirim header itu.
+  Future<ApiDownload> getFile(
+    String endpoint, {
+    String fallbackFileName = 'laporan.xlsx',
+  }) async {
+    final headers = await _headers();
+    headers['Accept'] =
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl$endpoint'), headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _handleResponse(response);
+        throw ApiException(
+          response.statusCode,
+          'Gagal mengunduh laporan (${response.statusCode}).',
+        );
+      }
+
+      if (response.bodyBytes.isEmpty) {
+        throw ApiException(0, 'File laporan kosong. Silakan coba lagi.');
+      }
+
+      return ApiDownload(
+        bytes: response.bodyBytes,
+        fileName: _fileNameFromHeaders(
+          response.headers['content-disposition'],
+          fallbackFileName,
+        ),
+        contentType:
+            response.headers['content-type'] ??
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw ApiException(
+        0,
+        'Tidak dapat terhubung ke server. Pastikan backend berjalan.',
+      );
+    } catch (_) {
+      throw ApiException(
+        0,
+        'Tidak dapat terhubung ke server. Pastikan backend berjalan.',
+      );
+    }
+  }
+
+  static String _fileNameFromHeaders(
+    String? contentDisposition,
+    String fallback,
+  ) {
+    if (contentDisposition == null || contentDisposition.isEmpty) {
+      return fallback;
+    }
+
+    final encodedMatch = RegExp(
+      r"filename\*\s*=\s*(?:UTF-8'')?([^;]+)",
+      caseSensitive: false,
+    ).firstMatch(contentDisposition);
+
+    if (encodedMatch != null) {
+      final encoded = encodedMatch.group(1)?.trim();
+      if (encoded != null && encoded.isNotEmpty) {
+        try {
+          return _safeFileName(Uri.decodeComponent(encoded));
+        } catch (_) {
+          // Lanjut ke filename biasa bila encoding tidak valid.
+        }
+      }
+    }
+
+    final match = RegExp(
+      r'filename\s*=\s*"([^"]+)"|filename\s*=\s*([^;]+)',
+      caseSensitive: false,
+    ).firstMatch(contentDisposition);
+    final raw = (match?.group(1) ?? match?.group(2))?.trim();
+
+    if (raw == null || raw.isEmpty) return fallback;
+
+    return _safeFileName(raw);
+  }
+
+  static String _safeFileName(String value) {
+    final sanitized = value
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .trim();
+
+    return sanitized.isEmpty ? 'laporan.xlsx' : sanitized;
   }
 
   /// POST dengan body JSON, mis. post('/auth/login', {...}).

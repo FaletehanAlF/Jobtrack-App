@@ -12,6 +12,18 @@ class ApplicationStatus {
   const ApplicationStatus._();
 }
 
+/// Label status yang konsisten untuk UI maupun ringkasan laporan.
+String applicationStatusLabel(String status) {
+  switch (status) {
+    case ApplicationStatus.submitted:
+      return 'Dikirim';
+    case ApplicationStatus.rejected:
+      return 'Ditolak';
+    default:
+      return status.isEmpty ? 'Tidak diketahui' : status;
+  }
+}
+
 /// Ringkasan lowongan yang ikut dikirim pada respons `GET /api/applications`.
 ///
 /// Endpoint lamaran hanya mengirim judul, perusahaan, dan lokasi lowongan,
@@ -97,16 +109,7 @@ class ApplicationModel {
 
   /// Label status untuk UI. Status yang belum dikenal tetap ditampilkan
   /// agar pengguna tidak melihat riwayat yang tampak kosong.
-  String get statusLabel {
-    switch (status) {
-      case ApplicationStatus.submitted:
-        return 'Dikirim';
-      case ApplicationStatus.rejected:
-        return 'Ditolak';
-      default:
-        return status.isEmpty ? 'Tidak diketahui' : status;
-    }
-  }
+  String get statusLabel => applicationStatusLabel(status);
 
   static int _parseInt(dynamic value, String fieldName) {
     if (value is num) return value.toInt();
@@ -138,6 +141,65 @@ class ApplicationModel {
   }
 }
 
+/// Satu baris pelamar yang dikirim `GET /api/applications/recruiter`.
+///
+/// Backend hanya mengirim username pelamar, bukan email atau kolom sensitif
+/// lain. `job` adalah lowongan milik recruiter yang sedang login.
+class RecruiterApplicantModel {
+  final int id;
+  final String status;
+  final DateTime? createdAt;
+  final String applicantUsername;
+  final ApplicationJob job;
+
+  const RecruiterApplicantModel({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+    required this.applicantUsername,
+    required this.job,
+  });
+
+  factory RecruiterApplicantModel.fromJson(Map<String, dynamic> json) {
+    final jobJson = json['job'];
+    final applicantJson = json['applicant'];
+
+    if (jobJson is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Field "job" pada data pelamar tidak ditemukan atau bukan objek.',
+      );
+    }
+
+    if (applicantJson is! Map<String, dynamic>) {
+      throw const FormatException(
+        'Field "applicant" pada data pelamar tidak ditemukan atau bukan objek.',
+      );
+    }
+
+    return RecruiterApplicantModel(
+      id: _parseInt(json['id'], 'id'),
+      status: json['status'] as String? ?? '',
+      createdAt: ApplicationModel._parseDate(json['created_at']),
+      applicantUsername: applicantJson['username'] as String? ?? '',
+      job: ApplicationJob.fromJson(jobJson),
+    );
+  }
+
+  bool get isSubmitted => status == ApplicationStatus.submitted;
+
+  bool get isRejected => status == ApplicationStatus.rejected;
+
+  String get statusLabel => applicationStatusLabel(status);
+
+  static int _parseInt(dynamic value, String fieldName) {
+    if (value is num) return value.toInt();
+
+    throw FormatException(
+      'Field "$fieldName" harus berupa nomor, mendapat: ${value.runtimeType}',
+    );
+  }
+}
+
 /// Hitungan ringkasan yang diturunkan dari daftar lamaran milik pengguna.
 ///
 /// Data asalnya tetap database: daftar lamaran diterima dari
@@ -157,14 +219,20 @@ class ApplicationStats {
   factory ApplicationStats.fromApplications(
     Iterable<ApplicationModel> applications,
   ) {
+    return ApplicationStats.fromStatuses(
+      applications.map((application) => application.status),
+    );
+  }
+
+  factory ApplicationStats.fromStatuses(Iterable<String> statuses) {
     var total = 0;
     var submitted = 0;
     var rejected = 0;
 
-    for (final application in applications) {
+    for (final status in statuses) {
       total += 1;
-      if (application.isSubmitted) submitted += 1;
-      if (application.isRejected) rejected += 1;
+      if (status == ApplicationStatus.submitted) submitted += 1;
+      if (status == ApplicationStatus.rejected) rejected += 1;
     }
 
     return ApplicationStats(
