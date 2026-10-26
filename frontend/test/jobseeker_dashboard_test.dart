@@ -274,9 +274,17 @@ void main() {
     expect(find.byType(BottomNavigationBar), findsOneWidget);
     expect(find.byType(NavigationRail), findsNothing);
 
-    await tester.ensureVisible(
-      find.byKey(const Key('dashboard-empty-applications-cta')),
+    final verticalScrollable = find.descendant(
+      of: find.byType(HomeTab),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is ListView && widget.scrollDirection == Axis.vertical,
+      ),
     );
+
+    await tester.drag(verticalScrollable.first, const Offset(0, -480));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('dashboard-empty-applications-cta')));
     await tester.pumpAndSettle();
 

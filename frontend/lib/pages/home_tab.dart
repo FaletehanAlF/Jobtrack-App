@@ -503,7 +503,7 @@ class _RecentApplicationsPanel extends StatelessWidget {
         if (loading)
           const _PanelLoading(label: 'Memuat lamaran...')
         else if (error != null)
-          _InlineError(message: error, onRetry: onRetry)
+          _InlineError(message: error!, onRetry: onRetry)
         else if (applications.isEmpty)
           _EmptyState(
             icon: Icons.assignment_outlined,
