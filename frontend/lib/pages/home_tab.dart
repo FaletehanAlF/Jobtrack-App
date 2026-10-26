@@ -457,6 +457,7 @@ class _JobsPanel extends StatelessWidget {
                 ? 'Tidak ada lowongan yang cocok dengan pencarian.'
                 : 'Belum ada lowongan tersedia.',
             actionLabel: hasFilters ? null : 'Buka semua lowongan',
+            actionKey: const Key('dashboard-empty-jobs-cta'),
             onAction: hasFilters ? null : onShowJobs,
           )
         else
@@ -518,6 +519,7 @@ class _RecentApplicationsPanel extends StatelessWidget {
             message:
                 'Belum ada lamaran. Temukan lowongan yang cocok lalu kirim lamaran pertamamu.',
             actionLabel: 'Jelajahi lowongan',
+            actionKey: const Key('dashboard-empty-applications-cta'),
             onAction: onShowJobs,
           )
         else
@@ -784,12 +786,14 @@ class _EmptyState extends StatelessWidget {
     required this.icon,
     required this.message,
     this.actionLabel,
+    this.actionKey,
     this.onAction,
   });
 
   final IconData icon;
   final String message;
   final String? actionLabel;
+  final Key? actionKey;
   final VoidCallback? onAction;
 
   @override
@@ -818,6 +822,7 @@ class _EmptyState extends StatelessWidget {
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 6),
             TextButton(
+              key: actionKey,
               onPressed: onAction,
               child: Text(actionLabel!),
             ),

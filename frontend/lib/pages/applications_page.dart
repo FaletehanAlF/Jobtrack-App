@@ -342,6 +342,7 @@ class _EmptyApplications extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           ElevatedButton(
+            key: const Key('applications-empty-cta'),
             onPressed: onShowJobs,
             style: ElevatedButton.styleFrom(
               backgroundColor: JobTrackColors.blue,

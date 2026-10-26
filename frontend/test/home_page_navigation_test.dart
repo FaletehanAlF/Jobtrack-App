@@ -52,7 +52,15 @@ void main() {
       createdAt: DateTime(2020),
     );
 
-    await tester.pumpWidget(MaterialApp(home: HomePage(user: user, jobService: service)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          user: user,
+          jobService: service,
+          applicationService: _EmptyApplicationService(),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Lowongan'));
@@ -73,7 +81,13 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: HomePage(user: user, jobService: _EmptyJobService())),
+      MaterialApp(
+        home: HomePage(
+          user: user,
+          jobService: _EmptyJobService(),
+          applicationService: _EmptyApplicationService(),
+        ),
+      ),
     );
 
     await tester.pumpAndSettle();
@@ -105,7 +119,13 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: HomePage(user: user, jobService: _EmptyJobService())),
+      MaterialApp(
+        home: HomePage(
+          user: user,
+          jobService: _EmptyJobService(),
+          applicationService: _EmptyApplicationService(),
+        ),
+      ),
     );
 
     await tester.pumpAndSettle();
