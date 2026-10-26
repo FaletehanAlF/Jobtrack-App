@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tsx --test src/tests/validation.test.ts src/tests/middleware.test.ts src/tests/controller.test.ts src/tests/applications.db.test.ts",
+    "test": "tsx --test src/tests/validation.test.ts src/tests/middleware.test.ts src/tests/controller.test.ts src/tests/report.test.ts src/tests/applications.db.test.ts",
     "test:db": "tsx --test src/tests/applications.db.test.ts",
     "dev": "tsx watch src/server/server.ts",
     "start": "tsx src/server/server.ts"
@@ -21,6 +21,7 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.24.6",
+    "write-excel-file": "^4.1.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.5",
+    "read-excel-file": "^9.3.12",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

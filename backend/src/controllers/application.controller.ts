@@ -2,6 +2,12 @@ import type { NextFunction, Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import type { ZodError } from "zod";
 import { db } from "../config/database.js";
+import {
+  buildJobseekerApplicationsReport,
+  buildRecruiterApplicantsReport,
+  buildReportFilename,
+  EXCEL_MIME_TYPE,
+} from "../reports/application-report.js";
 import { createApplicationSchema } from "../validations/application.validation.js";
 
 // Bentuk baris tabel job_applications. Hanya kolom ini yang pernah diambil
@@ -29,6 +35,33 @@ interface ApplicationWithJobRow extends RowDataPacket {
   job_location: string;
 }
 
+// Pelamar pada laporan recruiter. Email dan kolom users lain sengaja tidak
+// diambil karena laporan hanya membutuhkan username pelamar.
+interface RecruiterApplicantRow extends RowDataPacket {
+  id: number;
+  status: string;
+  created_at: Date | string;
+  job_id: number;
+  job_title: string;
+  job_company: string;
+  job_location: string;
+  applicant_username: string;
+}
+
+const JOBSEEKER_APPLICATIONS_SELECT = `SELECT a.id, a.job_id, a.status,
+       a.created_at, a.updated_at,
+       j.title AS job_title, j.company AS job_company,
+       j.location AS job_location
+FROM job_applications a
+JOIN jobs j ON j.id = a.job_id`;
+
+const RECRUITER_APPLICANTS_SELECT = `SELECT a.id, a.status, a.created_at,
+       j.id AS job_id, j.title AS job_title, j.company AS job_company,
+       j.location AS job_location, u.username AS applicant_username
+FROM job_applications a
+JOIN jobs j ON j.id = a.job_id
+JOIN users u ON u.id = a.applicant_id`;
+
 // Kolom hasil SELECT untuk respons POST. Status tidak pernah diambil dari
 // body request; nilainya selalu 'submitted' pada saat pengajuan baru.
 const APPLICATION_COLUMNS =
@@ -48,6 +81,42 @@ function getFieldErrors(error: ZodError): Record<string, string> {
   }
 
   return messages;
+}
+
+async function fetchJobseekerApplicationRows(
+  applicantId: number,
+): Promise<ApplicationWithJobRow[]> {
+  const [rows] = await db.query<ApplicationWithJobRow[]>(
+    `${JOBSEEKER_APPLICATIONS_SELECT}
+     WHERE a.applicant_id = ?
+     ORDER BY a.created_at DESC, a.id DESC`,
+    [applicantId],
+  );
+  return rows;
+}
+
+async function fetchRecruiterApplicantRows(
+  recruiterId: number,
+): Promise<RecruiterApplicantRow[]> {
+  const [rows] = await db.query<RecruiterApplicantRow[]>(
+    `${RECRUITER_APPLICANTS_SELECT}
+     WHERE j.recruiter_id = ?
+     ORDER BY a.created_at DESC, a.id DESC`,
+    [recruiterId],
+  );
+  return rows;
+}
+
+function sendExcelFile(
+  res: Response,
+  fileName: string,
+  buffer: Buffer,
+): void {
+  res.setHeader("Content-Type", EXCEL_MIME_TYPE);
+  res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.status(200).send(buffer);
 }
 
 // POST /api/applications
@@ -163,16 +232,7 @@ export async function listApplications(
     // supaya alur lamaran ulang bisa dipahami pengguna.
     // JOIN (bukan LEFT JOIN) karena FK dengan ON DELETE CASCADE menjamin
     // setiap lamaran selalu punya lowongannya.
-    const [rows] = await db.query<ApplicationWithJobRow[]>(
-      `SELECT a.id, a.job_id, a.status, a.created_at, a.updated_at,
-              j.title AS job_title, j.company AS job_company,
-              j.location AS job_location
-       FROM job_applications a
-       JOIN jobs j ON j.id = a.job_id
-       WHERE a.applicant_id = ?
-       ORDER BY a.created_at DESC, a.id DESC`,
-      [applicantId],
-    );
+    const rows = await fetchJobseekerApplicationRows(applicantId);
 
     const applications = rows.map((row) => ({
       id: row.id,
@@ -188,6 +248,117 @@ export async function listApplications(
     }));
 
     res.status(200).json({ applications });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /api/applications/export (khusus jobseeker)
+export async function exportJobseekerApplications(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ message: "Tidak terautentikasi" });
+    return;
+  }
+
+  try {
+    const rows = await fetchJobseekerApplicationRows(req.user.id);
+
+    if (rows.length === 0) {
+      res.status(404).json({
+        message: "Belum ada lamaran untuk diekspor.",
+      });
+      return;
+    }
+
+    const buffer = await buildJobseekerApplicationsReport(
+      rows.map((row) => ({
+        jobTitle: row.job_title,
+        company: row.job_company,
+        location: row.job_location,
+        status: row.status,
+        createdAt: row.created_at,
+      })),
+    );
+
+    sendExcelFile(res, buildReportFilename("lamaran"), buffer);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /api/applications/recruiter (khusus recruiter)
+export async function listRecruiterApplicants(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ message: "Tidak terautentikasi" });
+    return;
+  }
+
+  try {
+    // recruiter_id selalu berasal dari token JWT, bukan query/body, sehingga
+    // recruiter tidak dapat meminta pelamar dari lowongan milik recruiter lain.
+    const rows = await fetchRecruiterApplicantRows(req.user.id);
+
+    const applicants = rows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      created_at: row.created_at,
+      applicant: {
+        username: row.applicant_username,
+      },
+      job: {
+        id: row.job_id,
+        title: row.job_title,
+        company: row.job_company,
+        location: row.job_location,
+      },
+    }));
+
+    res.status(200).json({ applicants });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /api/applications/recruiter/export (khusus recruiter)
+export async function exportRecruiterApplicants(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ message: "Tidak terautentikasi" });
+    return;
+  }
+
+  try {
+    const rows = await fetchRecruiterApplicantRows(req.user.id);
+
+    if (rows.length === 0) {
+      res.status(404).json({
+        message: "Belum ada pelamar untuk diekspor.",
+      });
+      return;
+    }
+
+    const buffer = await buildRecruiterApplicantsReport(
+      rows.map((row) => ({
+        jobTitle: row.job_title,
+        company: row.job_company,
+        applicantUsername: row.applicant_username,
+        status: row.status,
+        createdAt: row.created_at,
+      })),
+    );
+
+    sendExcelFile(res, buildReportFilename("pelamar"), buffer);
   } catch (error) {
     next(error);
   }

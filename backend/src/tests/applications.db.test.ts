@@ -5,10 +5,14 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import dotenv from "dotenv";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import { readSheet } from "read-excel-file/node";
 import { db } from "../config/database.js";
 import {
   createApplication,
+  exportJobseekerApplications,
+  exportRecruiterApplicants,
   listApplications,
+  listRecruiterApplicants,
 } from "../controllers/application.controller.js";
 import { callController, makeReq } from "./helpers.js";
 
@@ -100,6 +104,7 @@ describe("integrasi database job_applications", {
   // Identitas unik per run; email hasilnya tidak akan sama dengan data lain.
   const runId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const recruiterEmail = `jttestrec_${runId}${TEST_EMAIL_DOMAIN}`;
+  const otherRecruiterEmail = `jttestrec2_${runId}${TEST_EMAIL_DOMAIN}`;
   const applicantEmail = `jttestappl_${runId}${TEST_EMAIL_DOMAIN}`;
   const otherEmail = `jttestoth_${runId}${TEST_EMAIL_DOMAIN}`;
 
@@ -111,6 +116,7 @@ describe("integrasi database job_applications", {
   const testUsers: TestUser[] = [];
 
   let recruiterUserId = 0;
+  let otherRecruiterUserId = 0;
   let applicantUserId = 0;
   let otherApplicantUserId = 0;
   let jobIdA = 0;
@@ -203,6 +209,19 @@ describe("integrasi database job_applications", {
     testUsers.push({
       userId: recruiterUserId,
       email: recruiterEmail,
+      role: "recruiter",
+    });
+
+    // Recruiter kedua sengaja tidak memiliki lowongan. Dipakai untuk
+    // memastikan filter kepemilikan tidak membocorkan pelamar recruiter lain.
+    const [otherRecruiterInsert] = await db.query<ResultSetHeader>(
+      "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, 'x', 'recruiter')",
+      [`${TEST_USERNAME_PREFIX}REC2_${runId}`, otherRecruiterEmail],
+    );
+    otherRecruiterUserId = otherRecruiterInsert.insertId;
+    testUsers.push({
+      userId: otherRecruiterUserId,
+      email: otherRecruiterEmail,
       role: "recruiter",
     });
 
@@ -501,5 +520,123 @@ describe("integrasi database job_applications", {
       );
       assert.ok(application.job.company);
     }
+  });
+
+  it("recruiter hanya melihat pelamar dari lowongan miliknya", async (t) => {
+    if (!ensureDb(t)) return;
+
+    const ownCapture = await callController(
+      listRecruiterApplicants,
+      makeReq({ id: recruiterUserId, role: "recruiter" }),
+    );
+
+    assert.equal(ownCapture.status, 200);
+    const ownApplicants = (
+      ownCapture.body as {
+        applicants: Array<{
+          status: string;
+          applicant: Record<string, unknown>;
+          job: { title: string };
+        }>;
+      }
+    ).applicants;
+
+    assert.equal(ownApplicants.length, 3);
+    for (const applicant of ownApplicants) {
+      assert.equal(
+        applicant.job.title.startsWith("JT Test Lowongan"),
+        true,
+      );
+      assert.equal(typeof applicant.applicant.username, "string");
+      assert.equal("email" in applicant.applicant, false);
+    }
+
+    // Recruiter lain tidak memiliki lowongan, sehingga harus menerima daftar
+    // kosong meskipun ada lamaran milik recruiter pertama di database.
+    const otherCapture = await callController(
+      listRecruiterApplicants,
+      makeReq({ id: otherRecruiterUserId, role: "recruiter" }),
+    );
+
+    assert.equal(otherCapture.status, 200);
+    assert.deepEqual(
+      (otherCapture.body as { applicants: unknown[] }).applicants,
+      [],
+    );
+  });
+
+  it("ekspor jobseeker hanya memuat lamaran miliknya dan aman untuk data kosong", async (t) => {
+    if (!ensureDb(t)) return;
+
+    const ownCapture = await callController(
+      exportJobseekerApplications,
+      makeReq({ id: applicantUserId, role: "jobseeker" }),
+    );
+
+    assert.equal(ownCapture.status, 200);
+    assert.match(
+      ownCapture.headers?.["content-type"] ?? "",
+      /spreadsheetml\.sheet/,
+    );
+    assert.match(
+      ownCapture.headers?.["content-disposition"] ?? "",
+      /laporan_lamaran_\d{4}-\d{2}-\d{2}\.xlsx/,
+    );
+    assert.ok(ownCapture.buffer);
+
+    const rows = await readSheet(ownCapture.buffer);
+    assert.equal(rows.length, 4); // header + 3 lamaran
+    for (const row of rows.slice(1)) {
+      assert.equal(
+        String(row[1]).startsWith("JT Test Lowongan"),
+        true,
+      );
+    }
+
+    const otherCapture = await callController(
+      exportJobseekerApplications,
+      makeReq({ id: otherApplicantUserId, role: "jobseeker" }),
+    );
+
+    assert.equal(otherCapture.status, 404);
+    assert.equal(otherCapture.buffer, undefined);
+  });
+
+  it("ekspor recruiter hanya memuat pelamar dari lowongan miliknya", async (t) => {
+    if (!ensureDb(t)) return;
+
+    const ownCapture = await callController(
+      exportRecruiterApplicants,
+      makeReq({ id: recruiterUserId, role: "recruiter" }),
+    );
+
+    assert.equal(ownCapture.status, 200);
+    assert.match(
+      ownCapture.headers?.["content-disposition"] ?? "",
+      /laporan_pelamar_\d{4}-\d{2}-\d{2}\.xlsx/,
+    );
+    assert.ok(ownCapture.buffer);
+
+    const rows = await readSheet(ownCapture.buffer);
+    assert.equal(rows.length, 4); // header + 3 pelamar
+    assert.equal(rows[0].includes("Email"), false);
+    for (const row of rows.slice(1)) {
+      assert.equal(
+        String(row[1]).startsWith("JT Test Lowongan"),
+        true,
+      );
+      assert.equal(
+        String(row[3]).startsWith(TEST_USERNAME_PREFIX),
+        true,
+      );
+    }
+
+    const otherCapture = await callController(
+      exportRecruiterApplicants,
+      makeReq({ id: otherRecruiterUserId, role: "recruiter" }),
+    );
+
+    assert.equal(otherCapture.status, 404);
+    assert.equal(otherCapture.buffer, undefined);
   });
 });

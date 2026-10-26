@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { authenticate } from "../middleware/auth.middleware.js";
-import { authorizeRoles } from "../middleware/authorize.middleware.js";
+import { authenticate } from "../config/middleware/auth.middleware.js";
+import { authorizeRoles } from "../config/middleware/authorize.middleware.js";
 import {
   listJobs,
   getJob,

@@ -6,6 +6,8 @@ import type { NextFunction, Request, Response } from "express";
 export interface HandlerCapture {
   status?: number;
   body?: unknown;
+  headers?: Record<string, string>;
+  buffer?: Buffer;
   nextError?: unknown;
 }
 
@@ -25,6 +27,21 @@ function makeRes(capture: HandlerCapture): Response {
     },
     json(body: unknown) {
       capture.body = body;
+      return this;
+    },
+    setHeader(name: string, value: number | string | readonly string[]) {
+      capture.headers ??= {};
+      capture.headers[name.toLowerCase()] = Array.isArray(value)
+        ? value.join(", ")
+        : String(value);
+      return this;
+    },
+    send(body: unknown) {
+      if (Buffer.isBuffer(body)) {
+        capture.buffer = body;
+      } else {
+        capture.body = body;
+      }
       return this;
     },
   } as unknown as Response;

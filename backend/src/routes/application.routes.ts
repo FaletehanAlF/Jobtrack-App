@@ -1,25 +1,46 @@
 import { Router } from "express";
-import { authenticate } from "../middleware/auth.middleware.js";
-import { authorizeRoles } from "../middleware/authorize.middleware.js";
+import { authenticate } from "../config/middleware/auth.middleware.js";
+import { authorizeRoles } from "../config/middleware/authorize.middleware.js";
 import {
   createApplication,
+  exportJobseekerApplications,
+  exportRecruiterApplicants,
   listApplications,
+  listRecruiterApplicants,
 } from "../controllers/application.controller.js";
 
 export const applicationRouter = Router();
 
-// Semua endpoint lamaran wajib login dan hanya untuk jobseeker.
-// Endpoint recruiter (daftar pelamar untuk lowongan miliknya) dan perubahan
-// status belum dibuat pada tahap ini, sesuai keputusan produk.
-applicationRouter.post(
-  "/",
+// Endpoint jobseeker: riwayat dan ekspor hanya berisi lamaran milik pemilik
+// token. Endpoint recruiter: daftar dan ekspor pelamar hanya untuk lowongan
+// dengan recruiter_id dari token.
+applicationRouter.get(
+  "/export",
   authenticate,
   authorizeRoles("jobseeker"),
-  createApplication,
+  exportJobseekerApplications,
+);
+applicationRouter.get(
+  "/recruiter/export",
+  authenticate,
+  authorizeRoles("recruiter"),
+  exportRecruiterApplicants,
+);
+applicationRouter.get(
+  "/recruiter",
+  authenticate,
+  authorizeRoles("recruiter"),
+  listRecruiterApplicants,
 );
 applicationRouter.get(
   "/",
   authenticate,
   authorizeRoles("jobseeker"),
   listApplications,
+);
+applicationRouter.post(
+  "/",
+  authenticate,
+  authorizeRoles("jobseeker"),
+  createApplication,
 );

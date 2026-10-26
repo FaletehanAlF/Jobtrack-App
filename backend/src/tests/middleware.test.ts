@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { AuthUser } from "../middleware/auth.middleware.js";
-import { authorizeRoles, type Role } from "../middleware/authorize.middleware.js";
+import type { AuthUser } from "../config/middleware/auth.middleware.js";
+import { authorizeRoles, type Role } from "../config/middleware/authorize.middleware.js";
 import { callMiddleware, makeReq } from "./helpers.js";
 
 describe("authorizeRoles untuk endpoint lamaran (khusus jobseeker)", () => {
@@ -50,5 +50,33 @@ describe("authorizeRoles untuk endpoint lamaran (khusus jobseeker)", () => {
       assert.equal(capture.nextError, true, `role ${role} seharusnya lewat`);
       assert.equal(capture.status, undefined);
     }
+  });
+});
+
+describe("authorizeRoles untuk endpoint recruiter", () => {
+  it("melewatkan recruiter ke next", () => {
+    const user: AuthUser = { id: 2, role: "recruiter" };
+    const capture = callMiddleware(
+      authorizeRoles("recruiter"),
+      makeReq(user),
+    );
+
+    assert.equal(capture.nextError, true);
+    assert.equal(capture.status, undefined);
+  });
+
+  it("menolak jobseeker dengan 403", () => {
+    const user: AuthUser = { id: 1, role: "jobseeker" };
+    const capture = callMiddleware(
+      authorizeRoles("recruiter"),
+      makeReq(user),
+    );
+
+    assert.equal(capture.nextError, undefined);
+    assert.equal(capture.status, 403);
+    assert.match(
+      String((capture.body as { message?: string }).message),
+      /recruiter/,
+    );
   });
 });
