@@ -8,27 +8,34 @@ import 'jobs_page.dart';
 import 'profile_page.dart';
 import 'register_page.dart';
 import 'saved_jobs_page.dart';
+import '../models/application_model.dart';
 import '../models/job_model.dart';
 import '../models/user_model.dart';
+import '../services/application_service.dart';
 import '../services/auth_service.dart';
 import '../services/job_service.dart';
 import '../theme/jobtrack_theme.dart';
 
 /// Shell utama setelah login.
 ///
-/// Menyediakan Bottom Navigation Bar untuk pencari kerja:
-/// Beranda, Lowongan, Lamaran, Tersimpan, Profil.
+/// Menyediakan navigasi untuk pencari kerja: Dashboard, Lowongan, Lamaran,
+/// Tersimpan, dan Profil. Di layar desktop, navigasi bawah diganti
+/// [NavigationRail] agar ruang vertikal dashboard lebih lega.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     this.user,
     this.jobService,
+    this.applicationService,
   });
 
   final UserModel? user;
 
   /// Bisa diisi saat pengujian agar test tidak benar-benar ke backend.
   final JobService? jobService;
+
+  /// Bisa diisi saat pengujian agar test tidak benar-benar ke backend.
+  final ApplicationService? applicationService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -40,9 +47,14 @@ class _HomePageState extends State<HomePage> {
   UserModel? _user;
   bool _loadingUser = true;
   int _currentIndex = 0;
+
   List<JobModel> _jobs = const [];
   bool _loadingJobs = true;
   String? _jobsError;
+
+  List<ApplicationModel> _applications = const [];
+  bool _loadingApplications = true;
+  String? _applicationsError;
 
   @override
   void initState() {
@@ -55,10 +67,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadJobs() async {
     final jobService = widget.jobService ?? JobService();
 
-    setState(() {
-      _loadingJobs = true;
-      _jobsError = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loadingJobs = true;
+        _jobsError = null;
+      });
+    }
 
     try {
       final jobs = await jobService.fetchJobs();
@@ -77,26 +91,128 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadUser() async {
-    if (_user != null) {
-      if (mounted) setState(() => _loadingUser = false);
+    var user = _user;
+
+    if (user == null) {
+      try {
+        user = await _authService.getCurrentUser();
+        if (!mounted) return;
+
+        if (user == null) {
+          _goToLogin();
+          return;
+        }
+      } catch (_) {
+        // Server tidak terjangkau: tetap tampilkan shell dengan data yang ada.
+        if (!mounted) return;
+        setState(() {
+          _loadingUser = false;
+          _loadingApplications = false;
+        });
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _user = user;
+      _loadingUser = false;
+    });
+
+    // Endpoint lamaran hanya tersedia untuk jobseeker. Recruiter tidak
+    // memanggil endpoint tersebut supaya tidak memicu 403 yang tidak perlu.
+    if (user.role == 'jobseeker') {
+      await _loadApplications();
+    } else if (mounted) {
+      setState(() {
+        _applications = const [];
+        _loadingApplications = false;
+        _applicationsError = null;
+      });
+    }
+  }
+
+  Future<void> _loadApplications() async {
+    if (_user?.role != 'jobseeker') {
+      if (!mounted) return;
+      setState(() {
+        _applications = const [];
+        _loadingApplications = false;
+        _applicationsError = null;
+      });
       return;
     }
 
+    final applicationService = widget.applicationService ?? ApplicationService();
+
+    if (mounted) {
+      setState(() {
+        _loadingApplications = true;
+        _applicationsError = null;
+      });
+    }
+
     try {
-      final user = await _authService.getCurrentUser();
+      final applications = await applicationService.fetchApplications();
       if (!mounted) return;
-      if (user == null) {
-        _goToLogin();
+      setState(() {
+        _applications = applications;
+        _loadingApplications = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _applicationsError = error.toString();
+        _loadingApplications = false;
+      });
+    }
+  }
+
+  Future<void> _refreshDashboard() async {
+    await Future.wait([
+      _loadJobs(),
+      if (_user?.role == 'jobseeker') _loadApplications(),
+    ]);
+  }
+
+  void _selectTab(int index) {
+    if (_currentIndex == index) return;
+    setState(() => _currentIndex = index);
+  }
+
+  void _openJob(JobModel job) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => JobDetailPage(job: job)),
+    );
+  }
+
+  Future<void> _openApplication(ApplicationModel application) async {
+    JobModel? matchingJob;
+
+    for (final job in _jobs) {
+      if (job.id == application.jobId) {
+        matchingJob = job;
+        break;
+      }
+    }
+
+    var job = matchingJob;
+
+    if (job == null) {
+      try {
+        job = await (widget.jobService ?? JobService())
+            .fetchJob(application.jobId);
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
         return;
       }
-      setState(() {
-        _user = user;
-        _loadingUser = false;
-      });
-    } catch (_) {
-      // Server tidak terjangkau: tetap tampilkan shell dengan data yang ada.
-      if (mounted) setState(() => _loadingUser = false);
     }
+
+    if (!mounted) return;
+    _openJob(job);
   }
 
   void _goToLogin() {
@@ -137,8 +253,9 @@ class _HomePageState extends State<HomePage> {
       MaterialPageRoute(builder: (_) => const RegisterPage()),
     );
   }
+
   static const _titles = <String>[
-    'JobTrack',
+    'Dashboard',
     'Lowongan',
     'Lamaran',
     'Tersimpan',
@@ -154,13 +271,22 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    final isJobseeker = _user?.role == 'jobseeker';
+
     final pages = <Widget>[
       HomeTab(
         user: _user,
         jobs: _jobs,
-        loading: _loadingJobs,
-        error: _jobsError,
-        onRefresh: _loadJobs,
+        loadingJobs: _loadingJobs,
+        jobsError: _jobsError,
+        applications: isJobseeker ? _applications : const [],
+        loadingApplications: isJobseeker && _loadingApplications,
+        applicationsError: isJobseeker ? _applicationsError : null,
+        onRefresh: _refreshDashboard,
+        onShowJobs: () => _selectTab(1),
+        onShowApplications: () => _selectTab(2),
+        onOpenJob: _openJob,
+        onOpenApplication: _openApplication,
       ),
       JobsPage(
         jobs: _jobs,
@@ -168,62 +294,165 @@ class _HomePageState extends State<HomePage> {
         error: _jobsError,
         onRefresh: _loadJobs,
       ),
-      const ApplicationsPage(),
+      ApplicationsPage(
+        applications: isJobseeker ? _applications : const [],
+        loading: isJobseeker && _loadingApplications,
+        error: isJobseeker ? _applicationsError : null,
+        canView: isJobseeker,
+        onRefresh: _loadApplications,
+        onOpenApplication: _openApplication,
+        onShowJobs: () => _selectTab(1),
+      ),
       const SavedJobsPage(),
       ProfilePage(user: _user, onLogout: _logout),
     ];
 
-    return Scaffold(
-      backgroundColor: JobTrackColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: JobTrackColors.navy,
-        title: Text(
-          _titles[_currentIndex],
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: JobTrackColors.navy,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        final isExtended = constraints.maxWidth >= 1200;
+        final content = IndexedStack(index: _currentIndex, children: pages);
+
+        return Scaffold(
+          backgroundColor: JobTrackColors.background,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            foregroundColor: JobTrackColors.navy,
+            title: Text(
+              _titles[_currentIndex],
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: JobTrackColors.navy,
+              ),
+            ),
           ),
-        ),
-      ),
-      body: IndexedStack(index: _currentIndex, children: pages),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: JobTrackColors.blue,
-        unselectedItemColor: JobTrackColors.navyMuted,
-        backgroundColor: JobTrackColors.surface,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Beranda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.work_outline),
-            activeIcon: Icon(Icons.work),
-            label: 'Lowongan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            activeIcon: Icon(Icons.assignment),
-            label: 'Lamaran',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark_border),
-            activeIcon: Icon(Icons.bookmark),
-            label: 'Tersimpan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
-      ),
+          body: isWide
+              ? Row(
+                  children: [
+                    NavigationRail(
+                      extended: isExtended,
+                      labelType: isExtended
+                          ? NavigationRailLabelType.none
+                          : NavigationRailLabelType.all,
+                      minWidth: 76,
+                      minExtendedWidth: 220,
+                      backgroundColor: JobTrackColors.surface,
+                      indicatorColor: JobTrackColors.blueSoft,
+                      selectedIconTheme: const IconThemeData(
+                        color: JobTrackColors.blue,
+                      ),
+                      unselectedIconTheme: const IconThemeData(
+                        color: JobTrackColors.navyMuted,
+                      ),
+                      selectedLabelTextStyle: const TextStyle(
+                        color: JobTrackColors.blue,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      unselectedLabelTextStyle: const TextStyle(
+                        color: JobTrackColors.navyMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      leading: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            color: JobTrackColors.blueSoft,
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(10),
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'JT',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: JobTrackColors.blue,
+                            ),
+                          ),
+                        ),
+                      ),
+                      selectedIndex: _currentIndex,
+                      onDestinationSelected: _selectTab,
+                      destinations: const [
+                        NavigationRailDestination(
+                          icon: Icon(Icons.home_outlined),
+                          selectedIcon: Icon(Icons.home),
+                          label: Text('Beranda'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.work_outline),
+                          selectedIcon: Icon(Icons.work),
+                          label: Text('Lowongan'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.assignment_outlined),
+                          selectedIcon: Icon(Icons.assignment),
+                          label: Text('Lamaran'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.bookmark_border),
+                          selectedIcon: Icon(Icons.bookmark),
+                          label: Text('Tersimpan'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Icon(Icons.person_outline),
+                          selectedIcon: Icon(Icons.person),
+                          label: Text('Profil'),
+                        ),
+                      ],
+                    ),
+                    const VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: JobTrackColors.border,
+                    ),
+                    Expanded(child: content),
+                  ],
+                )
+              : content,
+          bottomNavigationBar: isWide
+              ? null
+              : BottomNavigationBar(
+                  type: BottomNavigationBarType.fixed,
+                  currentIndex: _currentIndex,
+                  onTap: _selectTab,
+                  selectedItemColor: JobTrackColors.blue,
+                  unselectedItemColor: JobTrackColors.navyMuted,
+                  backgroundColor: JobTrackColors.surface,
+                  showUnselectedLabels: true,
+                  items: const [
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.home_outlined),
+                      activeIcon: Icon(Icons.home),
+                      label: 'Beranda',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.work_outline),
+                      activeIcon: Icon(Icons.work),
+                      label: 'Lowongan',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.assignment_outlined),
+                      activeIcon: Icon(Icons.assignment),
+                      label: 'Lamaran',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.bookmark_border),
+                      activeIcon: Icon(Icons.bookmark),
+                      label: 'Tersimpan',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Icon(Icons.person_outline),
+                      activeIcon: Icon(Icons.person),
+                      label: 'Profil',
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 }
