@@ -137,7 +137,7 @@ Widget _applicationsPage({
         onOpenApplication: (_) {},
         onShowJobs: () {},
         applicationService: service,
-        downloadHandler: downloadHandler,
+        downloadHandler: downloadHandler ?? (file) async {},
       ),
     ),
   );
@@ -156,7 +156,7 @@ Widget _recruiterPage({
         error: null,
         onRefresh: () async {},
         applicationService: service,
-        downloadHandler: downloadHandler,
+        downloadHandler: downloadHandler ?? (file) async {},
       ),
     ),
   );

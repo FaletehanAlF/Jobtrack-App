@@ -19,9 +19,10 @@ import '../theme/jobtrack_theme.dart';
 
 /// Shell utama setelah login.
 ///
-/// Menyediakan navigasi untuk pencari kerja: Dashboard, Lowongan, Lamaran,
-/// Tersimpan, dan Profil. Di layar desktop, navigasi bawah diganti
-/// [NavigationRail] agar ruang vertikal dashboard lebih lega.
+/// Jobseeker mendapat navigasi Dashboard, Lowongan, Lamaran, Tersimpan, dan
+/// Profil. Recruiter mendapat Dashboard pelamar, Lowongan, dan Profil. Di
+/// layar desktop, navigasi bawah diganti [NavigationRail] agar ruang vertikal
+/// dashboard lebih lega.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,

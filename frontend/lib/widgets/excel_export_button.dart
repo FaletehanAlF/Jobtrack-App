@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -71,6 +72,13 @@ class _ExcelExportButtonState extends State<ExcelExportButton> {
 
   @override
   Widget build(BuildContext context) {
+    // Unduhan .xlsx hanya untuk Flutter Web. Di build mobile tombol tidak
+    // ditampilkan agar aplikasi mobile yang sudah ada tidak berubah. Handler
+    // khusus tetap dipakai oleh widget test yang berjalan di Flutter VM.
+    if (!kIsWeb && widget.downloadHandler == null) {
+      return const SizedBox.shrink();
+    }
+
     return Tooltip(
       message: widget.enabled ? widget.label : widget.disabledMessage,
       child: OutlinedButton.icon(
