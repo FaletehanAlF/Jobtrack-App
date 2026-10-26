@@ -78,6 +78,60 @@ void main() {
     });
   });
 
+  group('RecruiterApplicantModel.fromJson', () {
+    test('mem-parsing pelamar dan ringkasan lowongan dari backend', () {
+      final applicant = RecruiterApplicantModel.fromJson({
+        'id': 21,
+        'status': 'submitted',
+        'created_at': '2026-10-22T09:00:00.000Z',
+        'applicant': {'username': 'budi'},
+        'job': {
+          'id': 7,
+          'title': 'Backend Developer',
+          'company': 'PT Gamma',
+          'location': 'Jakarta',
+        },
+      });
+
+      expect(applicant.id, 21);
+      expect(applicant.statusLabel, 'Dikirim');
+      expect(applicant.applicantUsername, 'budi');
+      expect(applicant.createdAt, isNotNull);
+      expect(applicant.job.title, 'Backend Developer');
+    });
+
+    test('field applicant yang hilang ditolak agar data tidak disamarkan', () {
+      expect(
+        () => RecruiterApplicantModel.fromJson({
+          'id': 22,
+          'status': 'submitted',
+          'job': {
+            'id': 8,
+            'title': 'QA Engineer',
+            'company': 'PT Contoh',
+            'location': 'Bandung',
+          },
+        }),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('ApplicationStats.fromStatuses', () {
+    test('menghitung status dari daftar pelamar recruiter', () {
+      final stats = ApplicationStats.fromStatuses(const [
+        'submitted',
+        'submitted',
+        'rejected',
+        'lainnya',
+      ]);
+
+      expect(stats.total, 4);
+      expect(stats.submitted, 2);
+      expect(stats.rejected, 1);
+    });
+  });
+
   group('ApplicationStats.fromApplications', () {
     test('menghitung total dan status yang didukung backend', () {
       final applications = [

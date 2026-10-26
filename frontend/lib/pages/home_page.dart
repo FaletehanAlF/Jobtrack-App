@@ -6,6 +6,7 @@ import 'onboarding_screen.dart';
 import 'home_tab.dart';
 import 'jobs_page.dart';
 import 'profile_page.dart';
+import 'recruiter_applicants_page.dart';
 import 'register_page.dart';
 import 'saved_jobs_page.dart';
 import '../models/application_model.dart';
@@ -55,6 +56,10 @@ class _HomePageState extends State<HomePage> {
   List<ApplicationModel> _applications = const [];
   bool _loadingApplications = true;
   String? _applicationsError;
+
+  List<RecruiterApplicantModel> _recruiterApplicants = const [];
+  bool _loadingRecruiterApplicants = true;
+  String? _recruiterApplicantsError;
 
   @override
   void initState() {
@@ -108,6 +113,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _loadingUser = false;
           _loadingApplications = false;
+          _loadingRecruiterApplicants = false;
         });
         return;
       }
@@ -119,15 +125,21 @@ class _HomePageState extends State<HomePage> {
       _loadingUser = false;
     });
 
-    // Endpoint lamaran hanya tersedia untuk jobseeker. Recruiter tidak
-    // memanggil endpoint tersebut supaya tidak memicu 403 yang tidak perlu.
+    // Endpoint lamaran jobseeker dan endpoint pelamar recruiter terpisah.
+    // Masing-masing hanya dipanggil untuk role yang berhak agar tidak memicu
+    // 403 yang tidak perlu.
     if (user.role == 'jobseeker') {
       await _loadApplications();
+    } else if (user.role == 'recruiter') {
+      await _loadRecruiterApplicants();
     } else if (mounted) {
       setState(() {
         _applications = const [];
         _loadingApplications = false;
         _applicationsError = null;
+        _recruiterApplicants = const [];
+        _loadingRecruiterApplicants = false;
+        _recruiterApplicantsError = null;
       });
     }
   }
@@ -169,10 +181,48 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadRecruiterApplicants() async {
+    if (_user?.role != 'recruiter') {
+      if (!mounted) return;
+      setState(() {
+        _recruiterApplicants = const [];
+        _loadingRecruiterApplicants = false;
+        _recruiterApplicantsError = null;
+      });
+      return;
+    }
+
+    final applicationService =
+        widget.applicationService ?? ApplicationService();
+
+    if (mounted) {
+      setState(() {
+        _loadingRecruiterApplicants = true;
+        _recruiterApplicantsError = null;
+      });
+    }
+
+    try {
+      final applicants = await applicationService.fetchRecruiterApplicants();
+      if (!mounted) return;
+      setState(() {
+        _recruiterApplicants = applicants;
+        _loadingRecruiterApplicants = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _recruiterApplicantsError = error.toString();
+        _loadingRecruiterApplicants = false;
+      });
+    }
+  }
+
   Future<void> _refreshDashboard() async {
     await Future.wait([
       _loadJobs(),
       if (_user?.role == 'jobseeker') _loadApplications(),
+      if (_user?.role == 'recruiter') _loadRecruiterApplicants(),
     ]);
   }
 
@@ -254,12 +304,106 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  static const _titles = <String>[
+  static const _jobseekerTitles = <String>[
     'Dashboard',
     'Lowongan',
     'Lamaran',
     'Tersimpan',
     'Profil',
+  ];
+
+  static const _recruiterTitles = <String>['Dashboard', 'Lowongan', 'Profil'];
+
+  static const _jobseekerRailDestinations = <NavigationRailDestination>[
+    NavigationRailDestination(
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home),
+      label: Text('Beranda'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.work_outline),
+      selectedIcon: Icon(Icons.work),
+      label: Text('Lowongan'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.assignment_outlined),
+      selectedIcon: Icon(Icons.assignment),
+      label: Text('Lamaran'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.bookmark_border),
+      selectedIcon: Icon(Icons.bookmark),
+      label: Text('Tersimpan'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.person_outline),
+      selectedIcon: Icon(Icons.person),
+      label: Text('Profil'),
+    ),
+  ];
+
+  static const _recruiterRailDestinations = <NavigationRailDestination>[
+    NavigationRailDestination(
+      icon: Icon(Icons.dashboard_outlined),
+      selectedIcon: Icon(Icons.dashboard),
+      label: Text('Dashboard'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.work_outline),
+      selectedIcon: Icon(Icons.work),
+      label: Text('Lowongan'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.person_outline),
+      selectedIcon: Icon(Icons.person),
+      label: Text('Profil'),
+    ),
+  ];
+
+  static const _jobseekerBottomItems = <BottomNavigationBarItem>[
+    BottomNavigationBarItem(
+      icon: Icon(Icons.home_outlined),
+      activeIcon: Icon(Icons.home),
+      label: 'Beranda',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.work_outline),
+      activeIcon: Icon(Icons.work),
+      label: 'Lowongan',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.assignment_outlined),
+      activeIcon: Icon(Icons.assignment),
+      label: 'Lamaran',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.bookmark_border),
+      activeIcon: Icon(Icons.bookmark),
+      label: 'Tersimpan',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.person_outline),
+      activeIcon: Icon(Icons.person),
+      label: 'Profil',
+    ),
+  ];
+
+  static const _recruiterBottomItems = <BottomNavigationBarItem>[
+    BottomNavigationBarItem(
+      icon: Icon(Icons.dashboard_outlined),
+      activeIcon: Icon(Icons.dashboard),
+      label: 'Dashboard',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.work_outline),
+      activeIcon: Icon(Icons.work),
+      label: 'Lowongan',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.person_outline),
+      activeIcon: Icon(Icons.person),
+      label: 'Profil',
+    ),
   ];
 
   @override
@@ -272,46 +416,75 @@ class _HomePageState extends State<HomePage> {
     }
 
     final isJobseeker = _user?.role == 'jobseeker';
+    final isRecruiter = _user?.role == 'recruiter';
 
-    final pages = <Widget>[
-      HomeTab(
-        user: _user,
-        jobs: _jobs,
-        loadingJobs: _loadingJobs,
-        jobsError: _jobsError,
-        applications: isJobseeker ? _applications : const [],
-        loadingApplications: isJobseeker && _loadingApplications,
-        applicationsError: isJobseeker ? _applicationsError : null,
-        onRefresh: _refreshDashboard,
-        onShowJobs: () => _selectTab(1),
-        onShowApplications: () => _selectTab(2),
-        onOpenJob: _openJob,
-        onOpenApplication: _openApplication,
-      ),
-      JobsPage(
-        jobs: _jobs,
-        loading: _loadingJobs,
-        error: _jobsError,
-        onRefresh: _loadJobs,
-      ),
-      ApplicationsPage(
-        applications: isJobseeker ? _applications : const [],
-        loading: isJobseeker && _loadingApplications,
-        error: isJobseeker ? _applicationsError : null,
-        canView: isJobseeker,
-        onRefresh: _loadApplications,
-        onOpenApplication: _openApplication,
-        onShowJobs: () => _selectTab(1),
-      ),
-      const SavedJobsPage(),
-      ProfilePage(user: _user, onLogout: _logout),
-    ];
+    final pages = isRecruiter
+        ? <Widget>[
+            RecruiterApplicantsPage(
+              applicants: _recruiterApplicants,
+              loading: _loadingRecruiterApplicants,
+              error: _recruiterApplicantsError,
+              onRefresh: _loadRecruiterApplicants,
+              applicationService: widget.applicationService,
+            ),
+            JobsPage(
+              jobs: _jobs,
+              loading: _loadingJobs,
+              error: _jobsError,
+              onRefresh: _loadJobs,
+            ),
+            ProfilePage(user: _user, onLogout: _logout),
+          ]
+        : <Widget>[
+            HomeTab(
+              user: _user,
+              jobs: _jobs,
+              loadingJobs: _loadingJobs,
+              jobsError: _jobsError,
+              applications: isJobseeker ? _applications : const [],
+              loadingApplications: isJobseeker && _loadingApplications,
+              applicationsError: isJobseeker ? _applicationsError : null,
+              onRefresh: _refreshDashboard,
+              onShowJobs: () => _selectTab(1),
+              onShowApplications: () => _selectTab(2),
+              onOpenJob: _openJob,
+              onOpenApplication: _openApplication,
+            ),
+            JobsPage(
+              jobs: _jobs,
+              loading: _loadingJobs,
+              error: _jobsError,
+              onRefresh: _loadJobs,
+            ),
+            ApplicationsPage(
+              applications: isJobseeker ? _applications : const [],
+              loading: isJobseeker && _loadingApplications,
+              error: isJobseeker ? _applicationsError : null,
+              canView: isJobseeker,
+              onRefresh: _loadApplications,
+              onOpenApplication: _openApplication,
+              onShowJobs: () => _selectTab(1),
+              applicationService: widget.applicationService,
+            ),
+            const SavedJobsPage(),
+            ProfilePage(user: _user, onLogout: _logout),
+          ];
+
+    final titles = isRecruiter ? _recruiterTitles : _jobseekerTitles;
+    final railDestinations = isRecruiter
+        ? _recruiterRailDestinations
+        : _jobseekerRailDestinations;
+    final bottomItems = isRecruiter
+        ? _recruiterBottomItems
+        : _jobseekerBottomItems;
+    final maxIndex = pages.length - 1;
+    final currentIndex = _currentIndex > maxIndex ? maxIndex : _currentIndex;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 900;
         final isExtended = constraints.maxWidth >= 1200;
-        final content = IndexedStack(index: _currentIndex, children: pages);
+        final content = IndexedStack(index: currentIndex, children: pages);
 
         return Scaffold(
           backgroundColor: JobTrackColors.background,
@@ -320,7 +493,7 @@ class _HomePageState extends State<HomePage> {
             elevation: 0,
             foregroundColor: JobTrackColors.navy,
             title: Text(
-              _titles[_currentIndex],
+              titles[currentIndex],
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 color: JobTrackColors.navy,
@@ -372,35 +545,9 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      selectedIndex: _currentIndex,
+                      selectedIndex: currentIndex,
                       onDestinationSelected: _selectTab,
-                      destinations: const [
-                        NavigationRailDestination(
-                          icon: Icon(Icons.home_outlined),
-                          selectedIcon: Icon(Icons.home),
-                          label: Text('Beranda'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.work_outline),
-                          selectedIcon: Icon(Icons.work),
-                          label: Text('Lowongan'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.assignment_outlined),
-                          selectedIcon: Icon(Icons.assignment),
-                          label: Text('Lamaran'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.bookmark_border),
-                          selectedIcon: Icon(Icons.bookmark),
-                          label: Text('Tersimpan'),
-                        ),
-                        NavigationRailDestination(
-                          icon: Icon(Icons.person_outline),
-                          selectedIcon: Icon(Icons.person),
-                          label: Text('Profil'),
-                        ),
-                      ],
+                      destinations: railDestinations,
                     ),
                     const VerticalDivider(
                       width: 1,
@@ -415,39 +562,13 @@ class _HomePageState extends State<HomePage> {
               ? null
               : BottomNavigationBar(
                   type: BottomNavigationBarType.fixed,
-                  currentIndex: _currentIndex,
+                  currentIndex: currentIndex,
                   onTap: _selectTab,
                   selectedItemColor: JobTrackColors.blue,
                   unselectedItemColor: JobTrackColors.navyMuted,
                   backgroundColor: JobTrackColors.surface,
                   showUnselectedLabels: true,
-                  items: const [
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.home_outlined),
-                      activeIcon: Icon(Icons.home),
-                      label: 'Beranda',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.work_outline),
-                      activeIcon: Icon(Icons.work),
-                      label: 'Lowongan',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.assignment_outlined),
-                      activeIcon: Icon(Icons.assignment),
-                      label: 'Lamaran',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.bookmark_border),
-                      activeIcon: Icon(Icons.bookmark),
-                      label: 'Tersimpan',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.person_outline),
-                      activeIcon: Icon(Icons.person),
-                      label: 'Profil',
-                    ),
-                  ],
+                  items: bottomItems,
                 ),
         );
       },

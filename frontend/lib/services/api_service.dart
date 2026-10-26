@@ -132,9 +132,7 @@ class ApiService {
   /// tanpa akhir.
   Future<dynamic> _send(Future<http.Response> Function() request) async {
     try {
-      final response = await request().timeout(
-        const Duration(seconds: 15),
-      );
+      final response = await request().timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } on ApiException {
       rethrow;
@@ -154,7 +152,9 @@ class ApiService {
   /// GET, mis. get('/auth/me').
   Future<dynamic> get(String endpoint) async {
     final headers = await _headers();
-    return _send(() => http.get(Uri.parse('$_baseUrl$endpoint'), headers: headers));
+    return _send(
+      () => http.get(Uri.parse('$_baseUrl$endpoint'), headers: headers),
+    );
   }
 
   /// GET file biner, mis. laporan Excel.
@@ -247,9 +247,7 @@ class ApiService {
   }
 
   static String _safeFileName(String value) {
-    final sanitized = value
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
-        .trim();
+    final sanitized = value.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
 
     return sanitized.isEmpty ? 'laporan.xlsx' : sanitized;
   }

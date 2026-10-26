@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/application_model.dart';
+import '../services/application_service.dart';
 import '../theme/jobtrack_theme.dart';
 import '../widgets/application_widgets.dart';
+import '../widgets/excel_export_button.dart';
 
 /// Halaman riwayat lamaran milik pengguna yang sedang login.
 ///
@@ -19,6 +21,8 @@ class ApplicationsPage extends StatelessWidget {
     required this.onRefresh,
     required this.onOpenApplication,
     required this.onShowJobs,
+    this.applicationService,
+    this.downloadHandler,
   });
 
   final List<ApplicationModel> applications;
@@ -28,6 +32,8 @@ class ApplicationsPage extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final ValueChanged<ApplicationModel> onOpenApplication;
   final VoidCallback onShowJobs;
+  final ApplicationService? applicationService;
+  final ReportDownloadHandler? downloadHandler;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +132,22 @@ class ApplicationsPage extends StatelessWidget {
                             color: JobTrackColors.navyMuted,
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 12),
+                      ExcelExportButton(
+                        buttonKey: const Key('jobseeker-export-button'),
+                        enabled:
+                            !loading &&
+                            error == null &&
+                            applications.isNotEmpty,
+                        onExport: () =>
+                            (applicationService ?? ApplicationService())
+                                .exportApplications(),
+                        downloadHandler: downloadHandler,
+                        successMessage: 'Laporan lamaran berhasil diunduh.',
+                        disabledMessage: loading
+                            ? 'Tunggu data lamaran selesai dimuat.'
+                            : 'Belum ada lamaran untuk diekspor.',
                       ),
                       if (!loading &&
                           error == null &&
