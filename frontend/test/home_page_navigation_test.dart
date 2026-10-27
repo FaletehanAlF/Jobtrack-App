@@ -7,8 +7,8 @@ import 'package:frontend/models/job_model.dart';
 import 'package:frontend/models/user_model.dart';
 import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/login_page.dart';
-import 'package:frontend/pages/register_page.dart';
 import 'package:frontend/services/application_service.dart';
+import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/services/job_service.dart';
 
 class _EmptyJobService extends JobService {
@@ -25,6 +25,16 @@ class _EmptyApplicationService extends ApplicationService {
   }
 }
 
+/// AuthService palsu: logout tidak menyentuh penyimpanan sungguhan.
+class _FakeAuthService extends AuthService {
+  int logoutCalls = 0;
+
+  @override
+  Future<void> logout() async {
+    logoutCalls += 1;
+  }
+}
+
 class _RecordingJobService extends JobService {
   @override
   Future<List<JobModel>> fetchJobs() async {
@@ -34,6 +44,14 @@ class _RecordingJobService extends JobService {
 
   int calls = 0;
 }
+
+final _user = UserModel(
+  id: 1,
+  username: 'tester',
+  email: 'tester@example.com',
+  role: 'jobseeker',
+  createdAt: DateTime(2020),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -46,18 +64,11 @@ void main() {
     WidgetTester tester,
   ) async {
     final service = _RecordingJobService();
-    final user = UserModel(
-      id: 1,
-      username: 'tester',
-      email: 'tester@example.com',
-      role: 'jobseeker',
-      createdAt: DateTime(2020),
-    );
 
     await tester.pumpWidget(
       MaterialApp(
         home: HomePage(
-          user: user,
+          user: _user,
           jobService: service,
           applicationService: _EmptyApplicationService(),
         ),
@@ -71,21 +82,16 @@ void main() {
     expect(service.calls, 1);
   });
 
-  testWidgets('Logout membuka onboarding dan tombol Masuk membuka LoginPage', (
+  testWidgets('Logout menghapus sesi dan membuka halaman Login', (
     WidgetTester tester,
   ) async {
-    final user = UserModel(
-      id: 1,
-      username: 'tester',
-      email: 'tester@example.com',
-      role: 'jobseeker',
-      createdAt: DateTime(2020),
-    );
+    final authService = _FakeAuthService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: HomePage(
-          user: user,
+          user: _user,
+          authService: authService,
           jobService: _EmptyJobService(),
           applicationService: _EmptyApplicationService(),
         ),
@@ -97,53 +103,48 @@ void main() {
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Keluar'));
     await tester.tap(find.text('Keluar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Selamat Datang'), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Masuk'));
-    await tester.tap(find.text('Masuk'));
-    await tester.pumpAndSettle();
-
+    // Token dihapus lewat AuthService, lalu pengguna diarahkan ke Login.
+    expect(authService.logoutCalls, 1);
     expect(find.byType(LoginPage), findsOneWidget);
+    expect(find.byType(HomePage), findsNothing);
   });
 
-  testWidgets(
-    'Logout membuka onboarding dan tombol Mulai Sekarang membuka RegisterPage',
-    (WidgetTester tester) async {
-      final user = UserModel(
-        id: 1,
-        username: 'tester',
-        email: 'tester@example.com',
-        role: 'jobseeker',
-        createdAt: DateTime(2020),
-      );
+  testWidgets('Setelah logout, riwayat dibersihkan sehingga Home tidak bisa '
+      'dibuka lewat Back', (WidgetTester tester) async {
+    final navigatorKey = GlobalKey<NavigatorState>();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: HomePage(
-            user: user,
-            jobService: _EmptyJobService(),
-            applicationService: _EmptyApplicationService(),
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: HomePage(
+          user: _user,
+          authService: _FakeAuthService(),
+          jobService: _EmptyJobService(),
+          applicationService: _EmptyApplicationService(),
         ),
-      );
+      ),
+    );
 
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Profil'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Keluar'));
-      await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Keluar'));
+    await tester.tap(find.text('Keluar'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Selamat Datang'), findsOneWidget);
+    // Login menjadi satu-satunya rute: tidak ada Home terlindungi di bawahnya.
+    expect(navigatorKey.currentState!.canPop(), isFalse);
 
-      await tester.tap(find.text('Mulai Sekarang'));
-      await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
 
-      expect(find.byType(RegisterPage), findsOneWidget);
-    },
-  );
+    expect(find.byType(HomePage), findsNothing);
+    expect(find.byType(LoginPage), findsOneWidget);
+  });
 }

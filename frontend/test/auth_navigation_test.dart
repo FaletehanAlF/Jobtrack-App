@@ -28,8 +28,6 @@ import 'package:frontend/models/user_model.dart';
 import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/login_page.dart';
 import 'package:frontend/pages/onboarding_screen.dart';
-import 'package:frontend/pages/register_page.dart';
-import 'package:frontend/services/api_service.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:frontend/services/application_service.dart';
 import 'package:frontend/services/auth_service.dart';
