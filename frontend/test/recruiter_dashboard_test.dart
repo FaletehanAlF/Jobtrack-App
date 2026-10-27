@@ -19,12 +19,19 @@ import 'package:frontend/models/user_model.dart';
 import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/recruiter_dashboard_page.dart';
 import 'package:frontend/services/api_service.dart';
+import 'package:frontend/services/application_service.dart';
 import 'package:frontend/services/job_service.dart';
 import 'package:frontend/services/recruiter_service.dart';
 
 class _FakeJobService extends JobService {
   @override
   Future<List<JobModel>> fetchJobs() async => const [];
+}
+
+/// ApplicationService palsu: mengembalikan riwayat kosong tanpa jaringan.
+class _FakeApplicationService extends ApplicationService {
+  @override
+  Future<List<ApplicationModel>> fetchApplications() async => const [];
 }
 
 /// Mencatat parameter yang diterima, supaya tes bisa memastikan filter
@@ -453,6 +460,10 @@ void main() {
         home: HomePage(
           user: jobseeker,
           jobService: _FakeJobService(),
+          // Tanpa service palsu, HomePage jobseeker akan memanggil backend
+          // sungguhan dan indikator loading berputar tanpa henti sehingga
+          // pumpAndSettle tidak pernah selesai.
+          applicationService: _FakeApplicationService(),
           recruiterService: _FakeRecruiterService(),
         ),
       ),

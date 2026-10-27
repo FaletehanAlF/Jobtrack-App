@@ -199,18 +199,24 @@ class _StatsOverview extends StatelessWidget {
                 for (var row = 0; row < (cards.length / columns).ceil(); row++)
                   Padding(
                     padding: EdgeInsets.only(bottom: row == 0 ? 12 : 0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var column = 0; column < columns; column++) ...[
-                          if (column > 0) const SizedBox(width: 12),
-                          Expanded(
-                            child: column + row * columns < cards.length
-                                ? cards[column + row * columns]
-                                : const SizedBox.shrink(),
-                          ),
+                    // IntrinsicHeight memberi Row tinggi yang pasti, sehingga
+                    // `stretch` bisa menyamakan tinggi kartu. Tanpa ini, Row
+                    // di dalam ListView menerima tinggi tak terbatas dan
+                    // layout gagal ("BoxConstraints forces an infinite height").
+                    child: IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var column = 0; column < columns; column++) ...[
+                            if (column > 0) const SizedBox(width: 12),
+                            Expanded(
+                              child: column + row * columns < cards.length
+                                  ? cards[column + row * columns]
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
               ],

@@ -4,18 +4,21 @@ import 'applications_page.dart';
 import 'login_page.dart';
 import 'home_tab.dart';
 import 'jobs_page.dart';
+import 'notifications_page.dart';
 import 'profile_page.dart';
 import 'recruiter_applicants_page.dart';
 import 'recruiter_dashboard_page.dart';
 import 'saved_jobs_page.dart';
 import '../models/application_model.dart';
 import '../models/job_model.dart';
+import '../models/notification_model.dart';
 import '../models/recruiter_model.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/application_service.dart';
 import '../services/auth_service.dart';
 import '../services/job_service.dart';
+import '../services/notification_service.dart';
 import '../services/recruiter_service.dart';
 import '../theme/jobtrack_theme.dart';
 
@@ -33,6 +36,7 @@ class HomePage extends StatefulWidget {
     this.applicationService,
     this.authService,
     this.recruiterService,
+    this.notificationService,
   });
 
   final UserModel? user;
@@ -48,6 +52,9 @@ class HomePage extends StatefulWidget {
 
   /// Bisa diisi saat pengujian agar dashboard recruiter tidak ke backend.
   final RecruiterService? recruiterService;
+
+  /// Bisa diisi saat pengujian agar notifikasi tidak ke backend.
+  final NotificationService? notificationService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -89,6 +96,25 @@ class _HomePageState extends State<HomePage> {
 
   /// Ukuran satu halaman daftar pelamar.
   static const int _applicantsPageSize = 50;
+
+  /// Notifikasi. Jumlah belum dibaca disimpan terpisah dari daftar supaya
+  /// badge pada lonceng selalu berasal dari respons server.
+  List<NotificationModel> _notifications = const [];
+  int _unreadNotifications = 0;
+  bool _loadingNotifications = true;
+  String? _notificationsError;
+  bool _hasMoreNotifications = false;
+  bool _loadingMoreNotifications = false;
+  bool _markingAllRead = false;
+  int? _updatingNotificationId;
+
+  static const int _notificationsPageSize = 50;
+
+  NotificationService get _notificationService =>
+      widget.notificationService ?? NotificationService();
+
+  /// Indeks tab notifikasi. Jobseeker: 5, recruiter: 4 (setelah Profil).
+  int get _notificationsTabIndex => _user?.role == 'recruiter' ? 4 : 5;
 
   RecruiterService get _recruiterService =>
       widget.recruiterService ?? RecruiterService();
@@ -146,6 +172,7 @@ class _HomePageState extends State<HomePage> {
           _loadingUser = false;
           _loadingApplications = false;
           _loadingRecruiterApplicants = false;
+          _loadingNotifications = false;
         });
         return;
       }
@@ -167,7 +194,12 @@ class _HomePageState extends State<HomePage> {
       // endpoint sudah dibatasi kepemilikan oleh backend.
       await _loadRecruiterDashboard();
       await _loadRecruiterApplicants();
-    } else if (mounted) {
+    }
+
+    // Notifikasi berlaku untuk kedua role, jadi dimuat setelah role diketahui.
+    await _loadNotifications();
+
+    if (mounted && user.role != 'jobseeker' && user.role != 'recruiter') {
       setState(() {
         _applications = const [];
         _loadingApplications = false;
@@ -401,7 +433,231 @@ class _HomePageState extends State<HomePage> {
         _loadRecruiterDashboard(),
         _loadRecruiterApplicants(),
       ],
+      _loadNotifications(),
     ]);
+  }
+
+  /// Memuat halaman pertama notifikasi beserta jumlah belum dibaca.
+  ///
+  /// Jumlah belum dibaca diambil dari respons daftar (`unread`), sehingga
+  /// badge dan isi daftar selalu berasal dari sumber yang sama.
+  Future<void> _loadNotifications() async {
+    if (mounted) {
+      setState(() {
+        _loadingNotifications = true;
+        _notificationsError = null;
+      });
+    }
+
+    try {
+      final page = await _notificationService.fetchNotifications(
+        limit: _notificationsPageSize,
+        offset: 0,
+      );
+      if (!mounted) return;
+      setState(() {
+        _notifications = page.notifications;
+        _unreadNotifications = page.unread;
+        _hasMoreNotifications = page.hasMore;
+        _loadingNotifications = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _notificationsError = error.toString();
+        _loadingNotifications = false;
+      });
+    }
+  }
+
+  /// Hanya memperbarui badge, tanpa memuat seluruh daftar.
+  Future<void> _refreshUnreadCount() async {
+    try {
+      final unread = await _notificationService.fetchUnreadCount();
+      if (!mounted) return;
+      setState(() => _unreadNotifications = unread);
+    } catch (_) {
+      // Badge hanya indikator tambahan; kegagalan memuatnya tidak boleh
+      // mengganggu halaman yang sedang dipakai.
+    }
+  }
+
+  Future<void> _loadMoreNotifications() async {
+    if (_loadingMoreNotifications || !_hasMoreNotifications) return;
+
+    setState(() => _loadingMoreNotifications = true);
+
+    try {
+      final page = await _notificationService.fetchNotifications(
+        limit: _notificationsPageSize,
+        offset: _notifications.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _notifications = [..._notifications, ...page.notifications];
+        _unreadNotifications = page.unread;
+        _hasMoreNotifications = page.hasMore;
+        _loadingMoreNotifications = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadingMoreNotifications = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memuat notifikasi berikutnya: $error')),
+      );
+    }
+  }
+
+  /// Menandai satu notifikasi sudah dibaca.
+  ///
+  /// UI diperbarui setelah server mengonfirmasi, supaya badge dan status
+  /// baca tidak pernah berbeda dari keadaan sebenarnya di database.
+  Future<void> _markNotificationRead(NotificationModel notification) async {
+    if (notification.isRead || _updatingNotificationId != null) return;
+
+    setState(() => _updatingNotificationId = notification.id);
+
+    try {
+      final updated = await _notificationService.markRead(notification.id);
+      if (!mounted) return;
+      setState(() {
+        _notifications = [
+          for (final item in _notifications)
+            if (item.id == updated.id) updated else item,
+        ];
+        _unreadNotifications = (_unreadNotifications - 1).clamp(0, 1 << 31);
+        _updatingNotificationId = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _updatingNotificationId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menandai notifikasi: $error')),
+      );
+    }
+  }
+
+  /// Menandai seluruh notifikasi milik pengguna sudah dibaca.
+  Future<void> _markAllNotificationsRead() async {
+    if (_markingAllRead || _unreadNotifications == 0) return;
+
+    setState(() => _markingAllRead = true);
+
+    try {
+      await _notificationService.markAllRead();
+      if (!mounted) return;
+      setState(() {
+        _notifications = _notifications
+            .map((item) => item.isRead ? item : item.copyAsRead())
+            .toList();
+        _unreadNotifications = 0;
+        _markingAllRead = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _markingAllRead = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menandai semua notifikasi: $error')),
+      );
+    }
+  }
+
+  /// Membuka entitas terkait sebuah notifikasi.
+  ///
+  /// Jobseeker diarahkan ke riwayat lamaran; recruiter ke daftar pelamar
+  /// (terfilter lowongan bila notifikasi membawa job_id).
+  void _openNotification(NotificationModel notification) {
+    if (!notification.isRead) {
+      _markNotificationRead(notification);
+    }
+
+    final isRecruiter = _user?.role == 'recruiter';
+
+    if (isRecruiter) {
+      setState(() {
+        _applicantJobFilter = notification.jobId;
+        _applicantStatusFilter = null;
+        _currentIndex = 2; // Tab "Pelamar".
+      });
+      _loadRecruiterApplicants();
+      return;
+    }
+
+    setState(() => _currentIndex = 2); // Tab "Lamaran".
+  }
+
+  void _openNotificationsTab() {
+    setState(() => _currentIndex = _notificationsTabIndex);
+    _loadNotifications();
+  }
+
+  /// Halaman daftar notifikasi, dipakai kedua role.
+  Widget _notificationsView() {
+    return NotificationsPage(
+      notifications: _notifications,
+      unread: _unreadNotifications,
+      loading: _loadingNotifications,
+      error: _notificationsError,
+      onRefresh: _loadNotifications,
+      onMarkRead: _markNotificationRead,
+      onMarkAllRead: _markAllNotificationsRead,
+      onOpenNotification: _openNotification,
+      markingAllRead: _markingAllRead,
+      updatingId: _updatingNotificationId,
+      hasMore: _hasMoreNotifications,
+      loadingMore: _loadingMoreNotifications,
+      onLoadMore: _loadMoreNotifications,
+    );
+  }
+
+  /// Ikon lonceng dengan indikator jumlah belum dibaca.
+  ///
+  /// Badge hanya ditampilkan bila memang ada notifikasi belum dibaca, dan
+  /// angkanya dibatasi "99+" agar tidak melebarkan AppBar.
+  Widget _notificationBell() {
+    final unread = _unreadNotifications;
+
+    return IconButton(
+      key: const Key('home-notifications-button'),
+      tooltip: unread > 0
+          ? '$unread notifikasi belum dibaca'
+          : 'Notifikasi',
+      onPressed: _openNotificationsTab,
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(Icons.notifications_none),
+          if (unread > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                key: const Key('home-notifications-badge'),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 17),
+                decoration: BoxDecoration(
+                  color: JobTrackColors.danger,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: JobTrackColors.background,
+                    width: 1.5,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  unread > 99 ? '99+' : '$unread',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   void _selectTab(int index) {
@@ -474,6 +730,7 @@ class _HomePageState extends State<HomePage> {
     'Lamaran',
     'Tersimpan',
     'Profil',
+    'Notifikasi',
   ];
 
   static const _recruiterTitles = <String>[
@@ -481,6 +738,7 @@ class _HomePageState extends State<HomePage> {
     'Lowongan',
     'Pelamar',
     'Profil',
+    'Notifikasi',
   ];
 
   static const _jobseekerRailDestinations = <NavigationRailDestination>[
@@ -509,6 +767,11 @@ class _HomePageState extends State<HomePage> {
       selectedIcon: Icon(Icons.person),
       label: Text('Profil'),
     ),
+    NavigationRailDestination(
+      icon: Icon(Icons.notifications_none),
+      selectedIcon: Icon(Icons.notifications),
+      label: Text('Notifikasi'),
+    ),
   ];
 
   static const _recruiterRailDestinations = <NavigationRailDestination>[
@@ -531,6 +794,11 @@ class _HomePageState extends State<HomePage> {
       icon: Icon(Icons.person_outline),
       selectedIcon: Icon(Icons.person),
       label: Text('Profil'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.notifications_none),
+      selectedIcon: Icon(Icons.notifications),
+      label: Text('Notifikasi'),
     ),
   ];
 
@@ -560,6 +828,11 @@ class _HomePageState extends State<HomePage> {
       activeIcon: Icon(Icons.person),
       label: 'Profil',
     ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.notifications_none),
+      activeIcon: Icon(Icons.notifications),
+      label: 'Notifikasi',
+    ),
   ];
 
   static const _recruiterBottomItems = <BottomNavigationBarItem>[
@@ -582,6 +855,11 @@ class _HomePageState extends State<HomePage> {
       icon: Icon(Icons.person_outline),
       activeIcon: Icon(Icons.person),
       label: 'Profil',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.notifications_none),
+      activeIcon: Icon(Icons.notifications),
+      label: 'Notifikasi',
     ),
   ];
 
@@ -632,6 +910,7 @@ class _HomePageState extends State<HomePage> {
               loadingMore: _loadingMoreApplicants,
             ),
             ProfilePage(user: _user, onLogout: _logout),
+            _notificationsView(),
           ]
         : <Widget>[
             HomeTab(
@@ -666,6 +945,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SavedJobsPage(),
             ProfilePage(user: _user, onLogout: _logout),
+            _notificationsView(),
           ];
 
     final titles = isRecruiter ? _recruiterTitles : _jobseekerTitles;
@@ -697,6 +977,12 @@ class _HomePageState extends State<HomePage> {
                 color: JobTrackColors.navy,
               ),
             ),
+            actions: [
+              // Lonceng hanya muncul bila tab Notifikasi tidak sedang dibuka,
+              // karena di tab itu daftarnya sudah tampil lengkap.
+              if (currentIndex != _notificationsTabIndex) _notificationBell(),
+              const SizedBox(width: 4),
+            ],
           ),
           body: isWide
               ? Row(
