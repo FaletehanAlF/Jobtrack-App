@@ -29,6 +29,8 @@ import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/login_page.dart';
 import 'package:frontend/pages/onboarding_screen.dart';
 import 'package:frontend/pages/register_page.dart';
+import 'package:frontend/services/api_service.dart';
+import 'package:frontend/services/api_service.dart';
 import 'package:frontend/services/application_service.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/services/job_service.dart';
@@ -58,7 +60,10 @@ class _FakeAuthService extends AuthService {
     final error = loginError;
     if (error != null) throw error;
     final result = loginResult;
-    if (result == null) throw Exception('Email atau password salah');
+    if (result == null) {
+      // Sama seperti backend: kredensial salah dijawab 401 dengan pesan ini.
+      throw ApiException(401, 'Email atau password salah');
+    }
     return result;
   }
 
@@ -217,6 +222,7 @@ void main() {
     // Logout hanya lewat tindakan eksplisit pengguna di tab Profil.
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Keluar'));
     await tester.tap(find.text('Keluar'));
     await tester.pumpAndSettle();
 

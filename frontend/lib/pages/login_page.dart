@@ -88,6 +88,9 @@ class _LoginPageState extends State<LoginPage> {
             user: user,
             jobService: widget.jobService,
             applicationService: widget.applicationService,
+            // Service yang sama diteruskan agar sesi (token) yang dipakai
+            // Home identik dengan yang baru saja dibuat saat login.
+            authService: widget.authService,
           ),
         ),
         (route) => false,
@@ -107,8 +110,10 @@ class _LoginPageState extends State<LoginPage> {
 
   void _openRegister() {
     if (_loading) return;
-    // Tetap `push`: Back dari halaman daftar memang harus kembali ke form
-    // login yang tadi dibuka pengguna.
+    // `push` (bukan pushReplacement): Back dari halaman daftar memang harus
+    // kembali ke form login yang tadi dibuka pengguna. Penumpukan rute auth
+    // tidak menjadi masalah karena login yang berhasil membersihkan seluruh
+    // riwayat lewat pushAndRemoveUntil di _login.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RegisterPage()),

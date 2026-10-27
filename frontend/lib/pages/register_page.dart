@@ -83,8 +83,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _openLogin() {
     if (_loading) return;
-    // Tetap `push`: Back dari form login memang harus kembali ke halaman
-    // daftar yang tadi dibuka pengguna.
+    // `push`: Back dari form login kembali ke halaman daftar. Lihat catatan
+    // yang sama di LoginPage._openRegister.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),

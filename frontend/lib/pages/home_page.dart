@@ -283,14 +283,14 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
 
+    // Setelah logout, riwayat dibersihkan dan pengguna diarahkan ke Login.
+    // `(route) => false` membuang Home (dan semua rute di bawahnya), sehingga
+    // tombol Back web/sistem tidak bisa membuka kembali Home yang terlindungi.
+    // Halaman Login ini juga menjadi rute akar, jadi Back tidak menutup
+    // aplikasi secara tiba-tiba.
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(
-        builder: (routeContext) => OnboardingScreen(
-          onLogin: () => _openLoginPage(routeContext),
-          onSignUp: () => _openRegisterPage(routeContext),
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => const LoginPage()),
       (route) => false,
     );
   }
