@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:frontend/models/application_model.dart';
 import 'package:frontend/models/job_model.dart';
+import 'package:frontend/models/recruiter_model.dart';
 import 'package:frontend/models/user_model.dart';
 import 'package:frontend/pages/applications_page.dart';
 import 'package:frontend/pages/home_page.dart';
@@ -13,10 +14,46 @@ import 'package:frontend/pages/recruiter_applicants_page.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:frontend/services/application_service.dart';
 import 'package:frontend/services/job_service.dart';
+import 'package:frontend/services/recruiter_service.dart';
 
 class _FakeJobService extends JobService {
   @override
   Future<List<JobModel>> fetchJobs() async => const [];
+}
+
+/// RecruiterService palsu untuk HomePage: dashboard dan daftar pelamar
+/// sekarang diambil lewat service ini, bukan ApplicationService.
+class _FakeRecruiterService extends RecruiterService {
+  _FakeRecruiterService({this.applicants = const []});
+
+  final List<RecruiterApplicantModel> applicants;
+  int dashboardCalls = 0;
+  int applicantsCalls = 0;
+
+  @override
+  Future<RecruiterDashboardData> fetchDashboard() async {
+    dashboardCalls += 1;
+    return RecruiterDashboardData(
+      stats: RecruiterDashboardStats.empty,
+      jobs: const [],
+    );
+  }
+
+  @override
+  Future<RecruiterApplicantsPageData> fetchApplicants({
+    int? jobId,
+    String? status,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    applicantsCalls += 1;
+    return RecruiterApplicantsPageData(
+      applicants: applicants,
+      total: applicants.length,
+      limit: limit,
+      offset: offset,
+    );
+  }
 }
 
 class _FakeApplicationService extends ApplicationService {
@@ -325,6 +362,7 @@ void main() {
         _applicant(id: 1, username: 'budi', status: 'submitted'),
       ];
       final service = _FakeApplicationService(applicants: applicants);
+      final recruiterService = _FakeRecruiterService(applicants: applicants);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -332,21 +370,32 @@ void main() {
             user: _user(role: 'recruiter'),
             jobService: _FakeJobService(),
             applicationService: service,
+            recruiterService: recruiterService,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(RecruiterApplicantsPage), findsOneWidget);
+      // Tab Pelamar ada di navigasi recruiter, dan datanya dari
+      // RecruiterService (bukan endpoint jobseeker).
       expect(find.text('Pelamar'), findsOneWidget);
-      expect(find.text('budi'), findsOneWidget);
       expect(find.text('Tersimpan'), findsNothing);
-      expect(service.recruiterFetchCalls, 1);
+      expect(recruiterService.dashboardCalls, 1);
+      expect(recruiterService.applicantsCalls, 1);
       expect(service.jobseekerFetchCalls, 0);
+      expect(service.recruiterFetchCalls, 0);
+
+      // Empat tab recruiter: Dashboard, Lowongan, Pelamar, Profil.
       expect(
         tester.widget<IndexedStack>(find.byType(IndexedStack)).children.length,
-        3,
+        4,
       );
+
+      // Pindah ke tab Pelamar lalu pastikan pelamarnya tampil.
+      await tester.tap(find.text('Pelamar'));
+      await tester.pumpAndSettle();
+      expect(find.byType(RecruiterApplicantsPage), findsOneWidget);
+      expect(find.text('budi'), findsOneWidget);
     },
   );
 }
