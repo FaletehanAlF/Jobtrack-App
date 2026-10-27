@@ -6,13 +6,17 @@ import 'home_tab.dart';
 import 'jobs_page.dart';
 import 'profile_page.dart';
 import 'recruiter_applicants_page.dart';
+import 'recruiter_dashboard_page.dart';
 import 'saved_jobs_page.dart';
 import '../models/application_model.dart';
 import '../models/job_model.dart';
+import '../models/recruiter_model.dart';
 import '../models/user_model.dart';
+import '../services/api_service.dart';
 import '../services/application_service.dart';
 import '../services/auth_service.dart';
 import '../services/job_service.dart';
+import '../services/recruiter_service.dart';
 import '../theme/jobtrack_theme.dart';
 
 /// Shell utama setelah login.
@@ -28,6 +32,7 @@ class HomePage extends StatefulWidget {
     this.jobService,
     this.applicationService,
     this.authService,
+    this.recruiterService,
   });
 
   final UserModel? user;
@@ -40,6 +45,9 @@ class HomePage extends StatefulWidget {
 
   /// Bisa diisi saat pengujian agar pemeriksaan sesi tidak ke backend.
   final AuthService? authService;
+
+  /// Bisa diisi saat pengujian agar dashboard recruiter tidak ke backend.
+  final RecruiterService? recruiterService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -63,6 +71,27 @@ class _HomePageState extends State<HomePage> {
   List<RecruiterApplicantModel> _recruiterApplicants = const [];
   bool _loadingRecruiterApplicants = true;
   String? _recruiterApplicantsError;
+
+  /// Ringkasan dashboard recruiter (`GET /api/recruiter/dashboard`).
+  RecruiterDashboardData? _recruiterDashboard;
+  bool _loadingRecruiterDashboard = true;
+  String? _recruiterDashboardError;
+
+  /// Filter dan pagination daftar pelamar. Nilai null berarti tanpa filter.
+  int? _applicantJobFilter;
+  String? _applicantStatusFilter;
+  int? _applicantsTotal;
+  bool _hasMoreApplicants = false;
+  bool _loadingMoreApplicants = false;
+
+  /// Id lamaran yang sedang diubah statusnya.
+  int? _updatingApplicationId;
+
+  /// Ukuran satu halaman daftar pelamar.
+  static const int _applicantsPageSize = 50;
+
+  RecruiterService get _recruiterService =>
+      widget.recruiterService ?? RecruiterService();
 
   @override
   void initState() {

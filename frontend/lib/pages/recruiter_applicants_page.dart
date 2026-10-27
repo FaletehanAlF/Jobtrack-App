@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../models/application_model.dart';
+import '../models/recruiter_model.dart';
 import '../services/application_service.dart';
 import '../theme/jobtrack_theme.dart';
 import '../widgets/application_widgets.dart';
 import '../widgets/excel_export_button.dart';
 
-/// Dashboard recruiter: pelamar dari lowongan yang dimiliki recruiter login.
+/// Manajemen pelamar untuk recruiter.
 ///
-/// Data berasal dari `GET /api/applications/recruiter`. Backend memfilter
-/// dengan `jobs.recruiter_id` dari JWT dan tidak mengirim email pelamar.
+/// Data berasal dari `GET /api/recruiter/applicants`, yang sudah dibatasi
+/// `jobs.recruiter_id` dari token di backend. Filter di halaman ini hanya
+/// mempersempit hasil yang memang sudah dibatasi kepemilikan — bukan
+/// mekanisme keamanan.
 class RecruiterApplicantsPage extends StatelessWidget {
   const RecruiterApplicantsPage({
     super.key,
@@ -19,6 +22,18 @@ class RecruiterApplicantsPage extends StatelessWidget {
     required this.onRefresh,
     this.applicationService,
     this.downloadHandler,
+    this.jobs = const [],
+    this.selectedJobId,
+    this.onJobFilterChanged,
+    this.selectedStatus,
+    this.onStatusFilterChanged,
+    this.onUpdateStatus,
+    this.updatingApplicationId,
+    this.total,
+    this.hasMore = false,
+    this.onLoadMore,
+    this.loadingMore = false,
+    this.initialJobId,
   });
 
   final List<RecruiterApplicantModel> applicants;
@@ -28,11 +43,52 @@ class RecruiterApplicantsPage extends StatelessWidget {
   final ApplicationService? applicationService;
   final ReportDownloadHandler? downloadHandler;
 
+  /// Lowongan milik recruiter, untuk pilihan filter.
+  final List<RecruiterJobStats> jobs;
+
+  /// Filter yang sedang aktif. Null berarti tanpa filter.
+  final int? selectedJobId;
+  final ValueChanged<int?>? onJobFilterChanged;
+
+  /// Hanya 'submitted' dan 'rejected' yang didukung database.
+  final String? selectedStatus;
+  final ValueChanged<String?>? onStatusFilterChanged;
+
+  /// Mengubah status satu lamaran. Null berarti tombol tidak ditampilkan.
+  final Future<void> Function(RecruiterApplicantModel, String)? onUpdateStatus;
+
+  /// Id lamaran yang sedang diperbarui, untuk menonaktifkan tombolnya saja.
+  final int? updatingApplicationId;
+
+  /// Jumlah total baris yang cocok di server (bukan hanya halaman ini).
+  final int? total;
+
+  final bool hasMore;
+  final Future<void> Function()? onLoadMore;
+  final bool loadingMore;
+
+  /// Lowongan yang sedang dibuka dari dashboard; dipakai untuk judul.
+  final int? initialJobId;
+
+  bool get _hasFilters => selectedJobId != null || selectedStatus != null;
+
+  /// Nama lowongan yang sedang difilter, bila ada.
+  String? get _selectedJobTitle {
+    final jobId = selectedJobId;
+    if (jobId == null) return null;
+
+    for (final job in jobs) {
+      if (job.id == jobId) return job.title;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final stats = ApplicationStats.fromStatuses(
       applicants.map((applicant) => applicant.status),
     );
+    final totalCount = total ?? applicants.length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -72,9 +128,7 @@ class RecruiterApplicantsPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  applicants.isEmpty
-                                      ? 'Belum ada pelamar pada lowongan milikmu.'
-                                      : '${stats.total} pelamar dari lowongan milikmu.',
+                                  _subtitle(totalCount),
                                   style: const TextStyle(
                                     fontSize: 13.5,
                                     color: JobTrackColors.navyMuted,
@@ -104,6 +158,15 @@ class RecruiterApplicantsPage extends StatelessWidget {
                         disabledMessage: loading
                             ? 'Tunggu data pelamar selesai dimuat.'
                             : 'Belum ada pelamar untuk diekspor.',
+                      ),
+                      const SizedBox(height: 12),
+                      _Filters(
+                        jobs: jobs,
+                        selectedJobId: selectedJobId,
+                        onJobFilterChanged: onJobFilterChanged,
+                        selectedStatus: selectedStatus,
+                        onStatusFilterChanged: onStatusFilterChanged,
+                        enabled: !loading,
                       ),
                       if (!loading &&
                           error == null &&
@@ -143,7 +206,7 @@ class RecruiterApplicantsPage extends StatelessWidget {
                       else if (error != null)
                         _RecruiterError(message: error!, onRetry: onRefresh)
                       else if (applicants.isEmpty)
-                        const _RecruiterEmpty()
+                        _RecruiterEmpty(hasFilters: _hasFilters)
                       else
                         Column(
                           children: [
@@ -153,7 +216,43 @@ class RecruiterApplicantsPage extends StatelessWidget {
                               index++
                             ) ...[
                               if (index > 0) const SizedBox(height: 10),
-                              _ApplicantCard(applicant: applicants[index]),
+                              _ApplicantCard(
+                                applicant: applicants[index],
+                                onUpdateStatus: onUpdateStatus,
+                                updating:
+                                    updatingApplicationId ==
+                                    applicants[index].id,
+                              ),
+                            ],
+                            if (hasMore && onLoadMore != null) ...[
+                              const SizedBox(height: 16),
+                              OutlinedButton.icon(
+                                key: const Key('recruiter-load-more'),
+                                onPressed: loadingMore ? null : onLoadMore,
+                                icon: loadingMore
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.expand_more,
+                                        size: 18,
+                                      ),
+                                label: Text(
+                                  loadingMore
+                                      ? 'Memuat...'
+                                      : 'Muat lebih banyak',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: JobTrackColors.blue,
+                                  side: const BorderSide(
+                                    color: JobTrackColors.border,
+                                  ),
+                                ),
+                              ),
                             ],
                           ],
                         ),
@@ -167,15 +266,145 @@ class RecruiterApplicantsPage extends StatelessWidget {
       },
     );
   }
+
+  /// Ringkasan jumlah pelamar. Menyebut filter aktif agar angka tidak
+  /// disalahartikan sebagai total keseluruhan.
+  String _subtitle(int totalCount) {
+    if (totalCount == 0) {
+      return _hasFilters
+          ? 'Tidak ada pelamar yang cocok dengan filter ini.'
+          : 'Belum ada pelamar pada lowongan milikmu.';
+    }
+
+    final jobTitle = _selectedJobTitle;
+    if (jobTitle != null) {
+      return '$totalCount pelamar untuk "$jobTitle".';
+    }
+
+    if (_hasFilters) {
+      return '$totalCount pelamar sesuai filter.';
+    }
+
+    return '$totalCount pelamar dari lowongan milikmu.';
+  }
 }
 
-class _ApplicantCard extends StatelessWidget {
-  const _ApplicantCard({required this.applicant});
+/// Baris filter: lowongan dan status.
+class _Filters extends StatelessWidget {
+  const _Filters({
+    required this.jobs,
+    required this.selectedJobId,
+    required this.onJobFilterChanged,
+    required this.selectedStatus,
+    required this.onStatusFilterChanged,
+    required this.enabled,
+  });
 
-  final RecruiterApplicantModel applicant;
+  final List<RecruiterJobStats> jobs;
+  final int? selectedJobId;
+  final ValueChanged<int?>? onJobFilterChanged;
+  final String? selectedStatus;
+  final ValueChanged<String?>? onStatusFilterChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
+    final jobFilterEnabled = enabled && onJobFilterChanged != null;
+    final statusFilterEnabled = enabled && onStatusFilterChanged != null;
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        // Dropdown hanya muncul bila daftar lowongan tersedia; tanpa itu
+        // filternya tidak punya pilihan yang bermakna.
+        if (jobs.isNotEmpty && onJobFilterChanged != null)
+          SizedBox(
+            width: 260,
+            child: DropdownButtonFormField<int?>(
+              key: const Key('recruiter-filter-job'),
+              initialValue: selectedJobId,
+              isExpanded: true,
+              decoration: _filterDecoration('Lowongan'),
+              items: [
+                const DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text('Semua lowongan'),
+                ),
+                for (final job in jobs)
+                  DropdownMenuItem<int?>(
+                    value: job.id,
+                    child: Text(job.title, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: jobFilterEnabled ? onJobFilterChanged : null,
+            ),
+          ),
+        if (onStatusFilterChanged != null)
+          SizedBox(
+            width: 200,
+            child: DropdownButtonFormField<String?>(
+              key: const Key('recruiter-filter-status'),
+              initialValue: selectedStatus,
+              isExpanded: true,
+              decoration: _filterDecoration('Status'),
+              items: const [
+                DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Semua status'),
+                ),
+                // Hanya status yang ada di ENUM database.
+                DropdownMenuItem<String?>(
+                  value: ApplicationStatus.submitted,
+                  child: Text('Dikirim'),
+                ),
+                DropdownMenuItem<String?>(
+                  value: ApplicationStatus.rejected,
+                  child: Text('Ditolak'),
+                ),
+              ],
+              onChanged: statusFilterEnabled ? onStatusFilterChanged : null,
+            ),
+          ),
+      ],
+    );
+  }
+
+  static InputDecoration _filterDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      filled: true,
+      fillColor: JobTrackColors.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: JobTrackColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: JobTrackColors.border),
+      ),
+    );
+  }
+}
+
+class _ApplicantCard extends StatelessWidget {
+  const _ApplicantCard({
+    required this.applicant,
+    this.onUpdateStatus,
+    this.updating = false,
+  });
+
+  final RecruiterApplicantModel applicant;
+  final Future<void> Function(RecruiterApplicantModel, String)? onUpdateStatus;
+  final bool updating;
+
+  @override
+  Widget build(BuildContext context) {
+    final updateStatus = onUpdateStatus;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -229,6 +458,7 @@ class _ApplicantCard extends StatelessWidget {
           Wrap(
             spacing: 14,
             runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _MetaItem(
                 icon: Icons.person_outline,
@@ -248,6 +478,74 @@ class _ApplicantCard extends StatelessWidget {
               ),
             ],
           ),
+          // Hanya status yang didukung database yang bisa dipilih. Tombol
+          // untuk status yang sedang aktif tidak ditampilkan agar tidak ada
+          // aksi yang tidak mengubah apa pun.
+          if (updateStatus != null) ...[
+            const SizedBox(height: 6),
+            if (updating)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  if (!applicant.isRejected)
+                    TextButton.icon(
+                      key: Key('recruiter-${applicant.id}-reject'),
+                      onPressed: () => updateStatus(
+                        applicant,
+                        ApplicationStatus.rejected,
+                      ),
+                      icon: const Icon(Icons.cancel_outlined, size: 16),
+                      label: const Text('Tolak'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: JobTrackColors.danger,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: const Size(0, 34),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  if (!applicant.isSubmitted)
+                    TextButton.icon(
+                      key: Key('recruiter-${applicant.id}-restore'),
+                      onPressed: () => updateStatus(
+                        applicant,
+                        ApplicationStatus.submitted,
+                      ),
+                      icon: const Icon(Icons.undo_rounded, size: 16),
+                      label: const Text('Kembalikan ke Dikirim'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: JobTrackColors.blue,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: const Size(0, 34),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
         ],
       ),
     );
@@ -394,7 +692,9 @@ class _RecruiterError extends StatelessWidget {
 }
 
 class _RecruiterEmpty extends StatelessWidget {
-  const _RecruiterEmpty();
+  const _RecruiterEmpty({this.hasFilters = false});
+
+  final bool hasFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -407,23 +707,29 @@ class _RecruiterEmpty extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: JobTrackColors.border),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.people_outline, size: 46, color: JobTrackColors.navyMuted),
-          SizedBox(height: 12),
+          Icon(
+            hasFilters ? Icons.filter_alt_off_outlined : Icons.people_outline,
+            size: 46,
+            color: JobTrackColors.navyMuted,
+          ),
+          const SizedBox(height: 12),
           Text(
-            'Belum ada pelamar',
-            style: TextStyle(
+            hasFilters ? 'Tidak ada pelamar yang cocok' : 'Belum ada pelamar',
+            style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
               color: JobTrackColors.navy,
             ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
-            'Pelamar untuk lowongan yang kamu miliki akan muncul di sini.',
+            hasFilters
+                ? 'Coba ubah filter lowongan atau status.'
+                : 'Pelamar untuk lowongan yang kamu miliki akan muncul di sini.',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13.5,
               height: 1.5,
               color: JobTrackColors.navyMuted,

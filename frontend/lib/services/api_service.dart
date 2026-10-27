@@ -150,11 +150,15 @@ class ApiService {
   }
 
   /// GET, mis. get('/auth/me').
-  Future<dynamic> get(String endpoint) async {
+  ///
+  /// [query] opsional; nilai null tidak ikut dikirim sehingga parameter yang
+  /// tidak dipakai tidak muncul di URL.
+  Future<dynamic> get(String endpoint, {Map<String, String>? query}) async {
     final headers = await _headers();
-    return _send(
-      () => http.get(Uri.parse('$_baseUrl$endpoint'), headers: headers),
+    final uri = Uri.parse('$_baseUrl$endpoint').replace(
+      queryParameters: query == null || query.isEmpty ? null : query,
     );
+    return _send(() => http.get(uri, headers: headers));
   }
 
   /// GET file biner, mis. laporan Excel.
@@ -269,6 +273,21 @@ class ApiService {
     final headers = await _headers();
     return _send(
       () => http.put(
+        Uri.parse('$_baseUrl$endpoint'),
+        headers: headers,
+        body: jsonEncode(data),
+      ),
+    );
+  }
+
+  /// PATCH dengan body JSON, mis. patch('/recruiter/applicants/9/status').
+  ///
+  /// Dipakai untuk mengubah sebagian field saja (status lamaran), sesuai
+  /// semantik PATCH di backend.
+  Future<dynamic> patch(String endpoint, Map<String, dynamic> data) async {
+    final headers = await _headers();
+    return _send(
+      () => http.patch(
         Uri.parse('$_baseUrl$endpoint'),
         headers: headers,
         body: jsonEncode(data),
