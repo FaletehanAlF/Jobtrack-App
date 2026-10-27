@@ -60,6 +60,30 @@ class ApplicationJob {
   }
 }
 
+/// Mem-parse tanggal dari respons API menjadi waktu lokal.
+///
+/// Dipakai [ApplicationModel] dan model recruiter. Nilai yang hilang atau
+/// tidak valid menjadi null, bukan waktu sekarang.
+DateTime? parseApiDate(dynamic value) {
+  if (value is String) {
+    final parsed = DateTime.tryParse(value);
+    if (parsed != null) return parsed.toLocal();
+  }
+
+  if (value is num) {
+    return DateTime.fromMillisecondsSinceEpoch(
+      value.toInt(),
+      isUtc: true,
+    ).toLocal();
+  }
+
+  if (kDebugMode && value != null) {
+    debugPrint('[ApplicationModel] tanggal tidak valid: $value');
+  }
+
+  return null;
+}
+
 /// Satu baris riwayat lamaran milik pengguna yang sedang login.
 ///
 /// Bentuk JSON dari backend:

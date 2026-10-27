@@ -37,8 +37,8 @@ class RecruiterService {
     final query = <String, String>{
       'limit': '$limit',
       'offset': '$offset',
-      if (jobId != null) 'job_id': '$jobId',
-      if (status != null) 'status': status,
+      'job_id': ?(jobId == null ? null : '$jobId'),
+      'status': ?status,
     };
 
     final data = await _api.get('/recruiter/applicants', query: query);

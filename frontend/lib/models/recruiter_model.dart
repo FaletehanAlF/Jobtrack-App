@@ -38,7 +38,7 @@ class RecruiterJobStats {
       title: json['title'] as String? ?? '',
       company: json['company'] as String? ?? '',
       location: json['location'] as String? ?? '',
-      createdAt: ApplicationModel._parseDate(json['created_at']),
+      createdAt: parseApiDate(json['created_at']),
       applicantCount: _parseInt(json['applicant_count'], 'applicant_count'),
       submittedCount: _parseInt(json['submitted_count'], 'submitted_count'),
       rejectedCount: _parseInt(json['rejected_count'], 'rejected_count'),

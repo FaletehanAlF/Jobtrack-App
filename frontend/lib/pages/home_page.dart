@@ -163,6 +163,9 @@ class _HomePageState extends State<HomePage> {
     if (user.role == 'jobseeker') {
       await _loadApplications();
     } else if (user.role == 'recruiter') {
+      // Dashboard dan daftar pelamar dimuat sekali di awal; masing-masing
+      // endpoint sudah dibatasi kepemilikan oleh backend.
+      await _loadRecruiterDashboard();
       await _loadRecruiterApplicants();
     } else if (mounted) {
       setState(() {
@@ -220,12 +223,11 @@ class _HomePageState extends State<HomePage> {
         _recruiterApplicants = const [];
         _loadingRecruiterApplicants = false;
         _recruiterApplicantsError = null;
+        _applicantsTotal = null;
+        _hasMoreApplicants = false;
       });
       return;
     }
-
-    final applicationService =
-        widget.applicationService ?? ApplicationService();
 
     if (mounted) {
       setState(() {
@@ -235,10 +237,17 @@ class _HomePageState extends State<HomePage> {
     }
 
     try {
-      final applicants = await applicationService.fetchRecruiterApplicants();
+      final page = await _recruiterService.fetchApplicants(
+        jobId: _applicantJobFilter,
+        status: _applicantStatusFilter,
+        limit: _applicantsPageSize,
+        offset: 0,
+      );
       if (!mounted) return;
       setState(() {
-        _recruiterApplicants = applicants;
+        _recruiterApplicants = page.applicants;
+        _applicantsTotal = page.total;
+        _hasMoreApplicants = page.hasMore;
         _loadingRecruiterApplicants = false;
       });
     } catch (error) {
@@ -250,11 +259,148 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Memuat halaman pelamar berikutnya tanpa menghapus data yang sudah ada.
+  Future<void> _loadMoreApplicants() async {
+    if (_loadingMoreApplicants || !_hasMoreApplicants) return;
+
+    setState(() => _loadingMoreApplicants = true);
+
+    try {
+      final page = await _recruiterService.fetchApplicants(
+        jobId: _applicantJobFilter,
+        status: _applicantStatusFilter,
+        limit: _applicantsPageSize,
+        offset: _recruiterApplicants.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _recruiterApplicants = [..._recruiterApplicants, ...page.applicants];
+        _applicantsTotal = page.total;
+        _hasMoreApplicants = page.hasMore;
+        _loadingMoreApplicants = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadingMoreApplicants = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memuat pelamar berikutnya: $error')),
+      );
+    }
+  }
+
+  Future<void> _loadRecruiterDashboard() async {
+    if (_user?.role != 'recruiter') {
+      if (!mounted) return;
+      setState(() {
+        _recruiterDashboard = null;
+        _loadingRecruiterDashboard = false;
+        _recruiterDashboardError = null;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _loadingRecruiterDashboard = true;
+        _recruiterDashboardError = null;
+      });
+    }
+
+    try {
+      final dashboard = await _recruiterService.fetchDashboard();
+      if (!mounted) return;
+      setState(() {
+        _recruiterDashboard = dashboard;
+        _loadingRecruiterDashboard = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _recruiterDashboardError = error.toString();
+        _loadingRecruiterDashboard = false;
+      });
+    }
+  }
+
+  /// Memilih filter lowongan, lalu memuat ulang daftar pelamar.
+  Future<void> _setApplicantJobFilter(int? jobId) async {
+    if (_applicantJobFilter == jobId) return;
+    setState(() => _applicantJobFilter = jobId);
+    await _loadRecruiterApplicants();
+  }
+
+  /// Memilih filter status, lalu memuat ulang daftar pelamar.
+  Future<void> _setApplicantStatusFilter(String? status) async {
+    if (_applicantStatusFilter == status) return;
+    setState(() => _applicantStatusFilter = status);
+    await _loadRecruiterApplicants();
+  }
+
+  /// Mengubah status satu lamaran lewat backend, lalu memperbarui daftar.
+  Future<void> _updateApplicationStatus(
+    RecruiterApplicantModel applicant,
+    String status,
+  ) async {
+    if (_updatingApplicationId != null) return;
+
+    setState(() => _updatingApplicationId = applicant.id);
+
+    try {
+      final updated = await _recruiterService.updateStatus(
+        applicationId: applicant.id,
+        status: status,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _recruiterApplicants = [
+          for (final item in _recruiterApplicants)
+            if (item.id == updated.id) updated else item,
+        ];
+        _updatingApplicationId = null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Status lamaran ${updated.applicantUsername} diubah menjadi '
+            '"${updated.statusLabel}".',
+          ),
+        ),
+      );
+
+      // Statistik dashboard ikut berubah saat status berubah.
+      await _loadRecruiterDashboard();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _updatingApplicationId = null);
+
+      final message = error is ApiException ? error.message : error.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengubah status: $message')),
+      );
+    }
+  }
+
+  /// Membuka daftar pelamar terfilter untuk satu lowongan.
+  Future<void> _openApplicantsForJob(RecruiterJobStats job) async {
+    setState(() {
+      _applicantJobFilter = job.id;
+      _applicantStatusFilter = null;
+      _currentIndex = 2; // Tab "Pelamar" pada navigasi recruiter.
+    });
+    await _loadRecruiterApplicants();
+  }
+
   Future<void> _refreshDashboard() async {
     await Future.wait([
       _loadJobs(),
       if (_user?.role == 'jobseeker') _loadApplications(),
-      if (_user?.role == 'recruiter') _loadRecruiterApplicants(),
+      if (_user?.role == 'recruiter') ...[
+        _loadRecruiterDashboard(),
+        _loadRecruiterApplicants(),
+      ],
     ]);
   }
 
@@ -330,7 +476,12 @@ class _HomePageState extends State<HomePage> {
     'Profil',
   ];
 
-  static const _recruiterTitles = <String>['Dashboard', 'Lowongan', 'Profil'];
+  static const _recruiterTitles = <String>[
+    'Dashboard',
+    'Lowongan',
+    'Pelamar',
+    'Profil',
+  ];
 
   static const _jobseekerRailDestinations = <NavigationRailDestination>[
     NavigationRailDestination(
@@ -370,6 +521,11 @@ class _HomePageState extends State<HomePage> {
       icon: Icon(Icons.work_outline),
       selectedIcon: Icon(Icons.work),
       label: Text('Lowongan'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.people_outline),
+      selectedIcon: Icon(Icons.people),
+      label: Text('Pelamar'),
     ),
     NavigationRailDestination(
       icon: Icon(Icons.person_outline),
@@ -418,6 +574,11 @@ class _HomePageState extends State<HomePage> {
       label: 'Lowongan',
     ),
     BottomNavigationBarItem(
+      icon: Icon(Icons.people_outline),
+      activeIcon: Icon(Icons.people),
+      label: 'Pelamar',
+    ),
+    BottomNavigationBarItem(
       icon: Icon(Icons.person_outline),
       activeIcon: Icon(Icons.person),
       label: 'Profil',
@@ -438,18 +599,37 @@ class _HomePageState extends State<HomePage> {
 
     final pages = isRecruiter
         ? <Widget>[
-            RecruiterApplicantsPage(
-              applicants: _recruiterApplicants,
-              loading: _loadingRecruiterApplicants,
-              error: _recruiterApplicantsError,
-              onRefresh: _loadRecruiterApplicants,
-              applicationService: widget.applicationService,
+            RecruiterDashboardPage(
+              data: _recruiterDashboard,
+              loading: _loadingRecruiterDashboard,
+              error: _recruiterDashboardError,
+              onRefresh: _refreshDashboard,
+              onOpenApplicants: _openApplicantsForJob,
+              userName: _user?.username,
             ),
             JobsPage(
               jobs: _jobs,
               loading: _loadingJobs,
               error: _jobsError,
               onRefresh: _loadJobs,
+            ),
+            RecruiterApplicantsPage(
+              applicants: _recruiterApplicants,
+              loading: _loadingRecruiterApplicants,
+              error: _recruiterApplicantsError,
+              onRefresh: _refreshDashboard,
+              applicationService: widget.applicationService,
+              jobs: _recruiterDashboard?.jobs ?? const [],
+              selectedJobId: _applicantJobFilter,
+              onJobFilterChanged: _setApplicantJobFilter,
+              selectedStatus: _applicantStatusFilter,
+              onStatusFilterChanged: _setApplicantStatusFilter,
+              onUpdateStatus: _updateApplicationStatus,
+              updatingApplicationId: _updatingApplicationId,
+              total: _applicantsTotal,
+              hasMore: _hasMoreApplicants,
+              onLoadMore: _loadMoreApplicants,
+              loadingMore: _loadingMoreApplicants,
             ),
             ProfilePage(user: _user, onLogout: _logout),
           ]
