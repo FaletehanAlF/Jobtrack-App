@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'applications_page.dart';
 import 'login_page.dart';
-import 'onboarding_screen.dart';
 import 'home_tab.dart';
 import 'jobs_page.dart';
 import 'profile_page.dart';
 import 'recruiter_applicants_page.dart';
-import 'register_page.dart';
 import 'saved_jobs_page.dart';
 import '../models/application_model.dart';
 import '../models/job_model.dart';
@@ -292,20 +290,6 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
       (route) => false,
-    );
-  }
-
-  void _openLoginPage(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
-  }
-
-  void _openRegisterPage(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RegisterPage()),
     );
   }
 
