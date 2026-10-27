@@ -3,14 +3,31 @@ import 'package:flutter/material.dart';
 import 'home_page.dart';
 import 'register_page.dart';
 import '../services/api_service.dart';
+import '../services/application_service.dart';
 import '../services/auth_service.dart';
+import '../services/job_service.dart';
 import '../theme/jobtrack_theme.dart';
 import '../utils/validators.dart';
 import '../widgets/auth_components.dart';
 
 /// Halaman login: memasukkan email dan password untuk masuk ke aplikasi.
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({
+    super.key,
+    this.authService,
+    this.jobService,
+    this.applicationService,
+  });
+
+  /// Bisa diisi saat pengujian agar login tidak benar-benar ke backend.
+  final AuthService? authService;
+
+  /// Diteruskan ke [HomePage] setelah login berhasil. Bisa diisi saat
+  /// pengujian agar halaman tujuan tidak memanggil backend.
+  final JobService? jobService;
+
+  /// Diteruskan ke [HomePage] setelah login berhasil.
+  final ApplicationService? applicationService;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -21,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  final _authService = AuthService();
+  late final AuthService _authService = widget.authService ?? AuthService();
 
   bool _obscurePassword = true;
   bool _loading = false;
@@ -45,16 +62,35 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      await _authService.login(
+      final user = await _authService.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
+      // pushAndRemoveUntil dengan predikat `false` membuang SELURUH riwayat
+      // autentikasi (onboarding, login, register) dan menyisakan Home saja.
+      //
+      // `pushReplacement` saja tidak cukup: ia hanya mengganti rute paling
+      // atas, sedangkan rute auth di bawahnya tetap tinggal di stack. Akibatnya
+      // tombol Back (browser web / sistem Android) berjalan mundur ke rute-rute
+      // itu, dan pengguna yang sudah login bisa membuka form Login lagi.
+      //
+      // Karena Home menjadi satu-satunya rute, `Navigator.canPop()` bernilai
+      // false dan AppBar Home tidak menampilkan panah Back.
+      Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+        MaterialPageRoute(
+          builder: (_) => HomePage(
+            // Data user dari respons login dipakai langsung, sehingga Home
+            // tidak perlu memanggil GET /auth/me sekali lagi.
+            user: user,
+            jobService: widget.jobService,
+            applicationService: widget.applicationService,
+          ),
+        ),
+        (route) => false,
       );
     } catch (error) {
       if (!mounted) return;
@@ -71,6 +107,8 @@ class _LoginPageState extends State<LoginPage> {
 
   void _openRegister() {
     if (_loading) return;
+    // Tetap `push`: Back dari halaman daftar memang harus kembali ke form
+    // login yang tadi dibuka pengguna.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RegisterPage()),

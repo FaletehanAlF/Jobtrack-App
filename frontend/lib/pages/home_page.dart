@@ -29,6 +29,7 @@ class HomePage extends StatefulWidget {
     this.user,
     this.jobService,
     this.applicationService,
+    this.authService,
   });
 
   final UserModel? user;
@@ -39,12 +40,15 @@ class HomePage extends StatefulWidget {
   /// Bisa diisi saat pengujian agar test tidak benar-benar ke backend.
   final ApplicationService? applicationService;
 
+  /// Bisa diisi saat pengujian agar pemeriksaan sesi tidak ke backend.
+  final AuthService? authService;
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final _authService = AuthService();
+  late final AuthService _authService = widget.authService ?? AuthService();
 
   UserModel? _user;
   bool _loadingUser = true;
