@@ -37,8 +37,10 @@ class RecruiterService {
     final query = <String, String>{
       'limit': '$limit',
       'offset': '$offset',
+      // job_id perlu interpolasi, jadi tetap memakai `if`.
       if (jobId != null) 'job_id': '$jobId',
-      if (status != null) 'status': status,
+      // Status sudah String?, jadi bisa memakai null-aware element.
+      'status': ?status,
     };
 
     final data = await _api.get('/recruiter/applicants', query: query);
