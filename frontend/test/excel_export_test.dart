@@ -385,10 +385,10 @@ void main() {
       expect(service.jobseekerFetchCalls, 0);
       expect(service.recruiterFetchCalls, 0);
 
-      // Empat tab recruiter: Dashboard, Lowongan, Pelamar, Profil.
+      // Lima tab recruiter: Dashboard, Lowongan, Pelamar, Profil, Notifikasi.
       expect(
         tester.widget<IndexedStack>(find.byType(IndexedStack)).children.length,
-        4,
+        5,
       );
 
       // Pindah ke tab Pelamar lalu pastikan pelamarnya tampil.

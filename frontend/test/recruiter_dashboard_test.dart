@@ -40,7 +40,6 @@ class _FakeRecruiterService extends RecruiterService {
   _FakeRecruiterService({
     this.dashboard,
     this.applicants = const [],
-    this.total,
     this.dashboardError,
     this.applicantsError,
     this.updateError,

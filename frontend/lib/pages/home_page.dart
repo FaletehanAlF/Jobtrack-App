@@ -101,12 +101,20 @@ class _HomePageState extends State<HomePage> {
   /// badge pada lonceng selalu berasal dari respons server.
   List<NotificationModel> _notifications = const [];
   int _unreadNotifications = 0;
-  bool _loadingNotifications = true;
+  bool _loadingNotifications = false;
   String? _notificationsError;
   bool _hasMoreNotifications = false;
   bool _loadingMoreNotifications = false;
   bool _markingAllRead = false;
   int? _updatingNotificationId;
+
+  /// True setelah tab Notifikasi pernah dibuka.
+  ///
+  /// Daftar notifikasi tidak dimuat saat aplikasi dibuka: cukup jumlah belum
+  /// dibaca untuk badge. Ini menghindari memuat data yang belum dibutuhkan
+  /// sekaligus mencegah indikator loading berputar di tab yang belum
+  /// terlihat — semua tab dibangun oleh IndexedStack.
+  bool _notificationsOpened = false;
 
   static const int _notificationsPageSize = 50;
 
@@ -196,8 +204,9 @@ class _HomePageState extends State<HomePage> {
       await _loadRecruiterApplicants();
     }
 
-    // Notifikasi berlaku untuk kedua role, jadi dimuat setelah role diketahui.
-    await _loadNotifications();
+    // Hanya jumlah belum dibaca yang dimuat di awal — cukup untuk badge.
+    // Daftar lengkap baru diambil saat tab Notifikasi dibuka.
+    await _refreshUnreadCount();
 
     if (mounted && user.role != 'jobseeker' && user.role != 'recruiter') {
       setState(() {
@@ -433,7 +442,9 @@ class _HomePageState extends State<HomePage> {
         _loadRecruiterDashboard(),
         _loadRecruiterApplicants(),
       ],
-      _loadNotifications(),
+      // Hanya badge yang diperbarui saat pull-to-refresh, kecuali tab
+      // Notifikasi sudah pernah dibuka.
+      if (_notificationsOpened) _loadNotifications() else _refreshUnreadCount(),
     ]);
   }
 
@@ -444,6 +455,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadNotifications() async {
     if (mounted) {
       setState(() {
+        _notificationsOpened = true;
         _loadingNotifications = true;
         _notificationsError = null;
       });
@@ -525,9 +537,13 @@ class _HomePageState extends State<HomePage> {
           for (final item in _notifications)
             if (item.id == updated.id) updated else item,
         ];
-        _unreadNotifications = (_unreadNotifications - 1).clamp(0, 1 << 31);
         _updatingNotificationId = null;
       });
+
+      // Badge diambil ulang dari server, bukan dikurangi sendiri, supaya
+      // angkanya tetap benar walau notifikasi lain juga berubah di perangkat
+      // lain atau ada yang sudah dibaca sebelumnya.
+      await _refreshUnreadCount();
     } catch (error) {
       if (!mounted) return;
       setState(() => _updatingNotificationId = null);
@@ -553,6 +569,9 @@ class _HomePageState extends State<HomePage> {
         _unreadNotifications = 0;
         _markingAllRead = false;
       });
+
+      // Konfirmasi ulang ke server bahwa tidak ada sisa yang belum dibaca.
+      await _refreshUnreadCount();
     } catch (error) {
       if (!mounted) return;
       setState(() => _markingAllRead = false);
@@ -592,7 +611,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Halaman daftar notifikasi, dipakai kedua role.
+  ///
+  /// Sebelum tabnya pernah dibuka, widget ini hanya placeholder kosong.
+  /// Tanpa ini, NotificationsPage (dan indikator loading-nya) ikut dibangun
+  /// oleh IndexedStack sejak awal.
   Widget _notificationsView() {
+    if (!_notificationsOpened) return const SizedBox.shrink();
+
     return NotificationsPage(
       notifications: _notifications,
       unread: _unreadNotifications,
@@ -663,6 +688,12 @@ class _HomePageState extends State<HomePage> {
   void _selectTab(int index) {
     if (_currentIndex == index) return;
     setState(() => _currentIndex = index);
+
+    // Membuka tab Notifikasi lewat navigasi juga memuat ulang daftarnya,
+    // supaya notifikasi baru (mis. dari perangkat lain) langsung terlihat.
+    if (index == _notificationsTabIndex) {
+      _loadNotifications();
+    }
   }
 
   void _openJob(JobModel job) {
