@@ -28,18 +28,7 @@ class AuthPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: JobTrackColors.authBackgroundBottom,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              JobTrackColors.authBackgroundTop,
-              JobTrackColors.authBackgroundBottom,
-            ],
-          ),
-        ),
-        child: SafeArea(
+      body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 720;
@@ -506,7 +495,7 @@ class SocialCircleButton extends StatelessWidget {
   }
 }
 
-/// Ikon "G" Google dengan gradien warna merek, tanpa aset tambahan.
+/// Ikon "G" Google dengan warna solid, tanpa aset tambahan.
 class GoogleIcon extends StatelessWidget {
   const GoogleIcon({super.key, this.size = 22});
 
@@ -516,27 +505,14 @@ class GoogleIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: ShaderMask(
-        blendMode: BlendMode.srcIn,
-        shaderCallback: (bounds) => const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF4285F4),
-            Color(0xFF34A853),
-            Color(0xFFFBBC05),
-            Color(0xFFEA4335),
-          ],
-        ).createShader(bounds),
-        child: Center(
-          child: Text(
-            'G',
-            style: TextStyle(
-              fontSize: size,
-              height: 1,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
+      child: Center(
+        child: Text(
+          'G',
+          style: TextStyle(
+            fontSize: size,
+            height: 1,
+            fontWeight: FontWeight.w800,
+            color: JobTrackColors.blue,
           ),
         ),
       ),
