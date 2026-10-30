@@ -105,7 +105,6 @@ class AuthPageScaffold extends StatelessWidget {
             },
           ),
         ),
-      ),
     );
   }
 }
