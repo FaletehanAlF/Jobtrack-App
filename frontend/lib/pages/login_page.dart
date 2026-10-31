@@ -6,11 +6,14 @@ import '../services/api_service.dart';
 import '../services/application_service.dart';
 import '../services/auth_service.dart';
 import '../services/job_service.dart';
-import '../theme/jobtrack_theme.dart';
 import '../utils/validators.dart';
 import '../widgets/auth_components.dart';
 
 /// Halaman login: memasukkan email dan password untuk masuk ke aplikasi.
+///
+/// State yang dikelola: isi dua field, status loading, dan pesan error dari
+/// backend. Tampilan dipasang di [AuthPageScaffold] agar kerangkanya sama
+/// dengan halaman register.
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
@@ -40,7 +43,6 @@ class _LoginPageState extends State<LoginPage> {
 
   late final AuthService _authService = widget.authService ?? AuthService();
 
-  bool _obscurePassword = true;
   bool _loading = false;
 
   String? _errorMessage;
@@ -69,16 +71,9 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      // pushAndRemoveUntil dengan predikat `false` membuang SELURUH riwayat
-      // autentikasi (onboarding, login, register) dan menyisakan Home saja.
-      //
-      // `pushReplacement` saja tidak cukup: ia hanya mengganti rute paling
-      // atas, sedangkan rute auth di bawahnya tetap tinggal di stack. Akibatnya
-      // tombol Back (browser web / sistem Android) berjalan mundur ke rute-rute
-      // itu, dan pengguna yang sudah login bisa membuka form Login lagi.
-      //
-      // Karena Home menjadi satu-satunya rute, `Navigator.canPop()` bernilai
-      // false dan AppBar Home tidak menampilkan panah Back.
+      // pushAndRemoveUntil membuang seluruh riwayat rute auth (onboarding,
+      // login, register) sehingga tombol Back tidak bisa membuka halaman
+      // Login setelah pengguna berhasil masuk.
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
@@ -103,6 +98,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  /// Pesan yang ramah pengguna untuk error dari [AuthService].
   String _messageFor(Object error) {
     if (error is ApiException) return error.message;
     return 'Terjadi kesalahan. Coba lagi.';
@@ -110,10 +106,8 @@ class _LoginPageState extends State<LoginPage> {
 
   void _openRegister() {
     if (_loading) return;
-    // `push` (bukan pushReplacement): Back dari halaman daftar memang harus
-    // kembali ke form login yang tadi dibuka pengguna. Penumpukan rute auth
-    // tidak menjadi masalah karena login yang berhasil membersihkan seluruh
-    // riwayat lewat pushAndRemoveUntil di _login.
+    // `push` (bukan pushReplacement): Back dari halaman daftar harus kembali
+    // ke form login. Riwayat rute dibersihkan sendiri saat login berhasil.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RegisterPage()),
@@ -129,9 +123,6 @@ class _LoginPageState extends State<LoginPage> {
         formKey: _formKey,
         emailController: _emailController,
         passwordController: _passwordController,
-        obscurePassword: _obscurePassword,
-        onToggleObscure: () =>
-            setState(() => _obscurePassword = !_obscurePassword),
         loading: _loading,
         errorMessage: errorMessage,
         onLogin: _login,
@@ -147,8 +138,6 @@ class _LoginForm extends StatelessWidget {
     required this.formKey,
     required this.emailController,
     required this.passwordController,
-    required this.obscurePassword,
-    required this.onToggleObscure,
     required this.loading,
     required this.errorMessage,
     required this.onLogin,
@@ -158,8 +147,6 @@ class _LoginForm extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController emailController;
   final TextEditingController passwordController;
-  final bool obscurePassword;
-  final VoidCallback onToggleObscure;
   final bool loading;
   final String? errorMessage;
   final VoidCallback onLogin;
@@ -176,114 +163,32 @@ class _LoginForm extends StatelessWidget {
             title: 'Selamat Datang Kembali',
             subtitle: 'Masuk untuk melanjutkan perjalanan kariermu.',
           ),
-          const SizedBox(height: 28),
-
-          const AuthFieldLabel('Email'),
-          const SizedBox(height: 8),
-          TextFormField(
+          const SizedBox(height: 32),
+          AuthField(
+            label: 'Email',
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
-            autocorrect: false,
-            textInputAction: TextInputAction.next,
             validator: Validators.email,
-            style: const TextStyle(fontSize: 14.5, color: JobTrackColors.navy),
-            decoration: authFieldDecoration(hint: 'Masukkan email'),
+            hint: 'Masukkan email',
           ),
           const SizedBox(height: 16),
-
-          const AuthFieldLabel('Password'),
-          const SizedBox(height: 8),
-          TextFormField(
+          AuthPasswordField(
             controller: passwordController,
-            obscureText: obscurePassword,
-            autocorrect: false,
-            enableSuggestions: false,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => onLogin(),
             validator: Validators.loginPassword,
-            style: const TextStyle(fontSize: 14.5, color: JobTrackColors.navy),
-            decoration: authFieldDecoration(
-              hint: 'Masukkan password',
-              suffixIcon: IconButton(
-                tooltip: obscurePassword
-                    ? 'Tampilkan password'
-                    : 'Sembunyikan password',
-                onPressed: onToggleObscure,
-                icon: Icon(
-                  obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  size: 20,
-                  color: JobTrackColors.navyMuted,
-                ),
-              ),
-            ),
+            hint: 'Masukkan password',
+            onFieldSubmitted: (_) => onLogin(),
           ),
-
-          // Lupa password
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: loading ? null : () {},
-              style: TextButton.styleFrom(
-                foregroundColor: JobTrackColors.blue,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                minimumSize: const Size(0, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                textStyle: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: const Text('Lupa password?'),
-            ),
-          ),
-
           if (errorMessage != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 16),
             AuthErrorBanner(message: errorMessage!),
-            const SizedBox(height: 8),
           ],
-
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),
           PrimaryButton(label: 'Masuk', loading: loading, onPressed: onLogin),
           const SizedBox(height: 24),
-
-          const AuthDivider(),
-          const SizedBox(height: 20),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SocialCircleButton(
-                tooltip: 'Masuk dengan Google',
-                icon: const GoogleIcon(),
-                onPressed: loading ? null : () {},
-              ),
-              const SizedBox(width: 14),
-              SocialCircleButton(
-                tooltip: 'Masuk dengan Apple',
-                icon: const Icon(Icons.apple, size: 23, color: Colors.black),
-                onPressed: loading ? null : () {},
-              ),
-              const SizedBox(width: 14),
-              SocialCircleButton(
-                tooltip: 'Masuk dengan Facebook',
-                icon: const Icon(
-                  Icons.facebook,
-                  size: 24,
-                  color: Color(0xFF1877F2),
-                ),
-                onPressed: loading ? null : () {},
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-
           AuthLinkRow(
             question: 'Belum punya akun?',
             action: 'Daftar',
-            onPressed: onOpenRegister,
+            onPressed: loading ? null : onOpenRegister,
           ),
         ],
       ),

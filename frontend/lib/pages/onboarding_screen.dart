@@ -5,10 +5,9 @@ import '../widgets/auth_components.dart';
 /// Halaman onboarding: layar pertama yang dilihat pengguna sebelum
 /// masuk atau mendaftar.
 ///
-/// Desain mengikuti referensi baru: kartu putih di atas latar gradien,
-/// avatar logo di tengah, judul besar, tombol utama pill, pemisah "Atau",
-/// dan tiga tombol sosial lebar penuh. Tata letak tetap responsif dan dapat
-/// digulir pada layar pendek.
+/// Desain mengikuti kerangka autentikasi [AuthPageScaffold]: latar gradien
+/// tanpa kartu, avatar logo di tengah, judul besar, tombol utama pill,
+/// pemisah "Atau", dan tombol sosial lebar penuh.
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key, this.onLogin, this.onSignUp});
 

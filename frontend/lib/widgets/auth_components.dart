@@ -4,10 +4,11 @@ import '../theme/jobtrack_theme.dart';
 
 /// Kerangka halaman autentikasi (onboarding, login, register).
 ///
-/// Latar gradien lembut membungkus satu kartu putih terpusat. Di layar lebar
-/// kartu tetap ramping (maksimum [maxContentWidth]); di ponsel kartu mengisi
-/// lebar layar dengan margin kecil. Seluruh isi dapat digulir saat keyboard
-/// muncul atau tinggi layar terbatas.
+/// Desain sederhana tanpa kartu: gradien lembut sebagai latar dan satu kolom
+/// form dipusatkan secara horizontal (lebar maksimum [maxContentWidth]).
+/// Pengguliran hanya aktif saat layar benar-benar pendek (mis. keyboard
+/// ponsel terbuka) supaya isian tidak terpotong dan tidak ada tampilan
+/// yang meluap.
 class AuthPageScaffold extends StatelessWidget {
   const AuthPageScaffold({
     super.key,
@@ -21,96 +22,84 @@ class AuthPageScaffold extends StatelessWidget {
   /// Onboarding adalah halaman akar, jadi tidak memakainya.
   final bool showBackButton;
 
-  /// Lebar maksimum kartu. Di atas angka ini kartu tetap terpusat.
+  /// Lebar maksimum kolom form. Di atas angka ini kolom tetap terpusat.
   static const double maxContentWidth = 420;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: JobTrackColors.authBackgroundBottom,
-      body: SafeArea(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(gradient: JobTrackColors.authGradient),
+        child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 720;
-              final horizontalPadding = isWide ? 24.0 : 16.0;
-              final verticalPadding = isWide ? 32.0 : 16.0;
-              final minHeight = (constraints.maxHeight - verticalPadding * 2)
-                  .clamp(0.0, double.infinity)
-                  .toDouble();
+              final availableHeight = constraints.maxHeight;
+              // Layar pendek memakai padding kecil agar tersisa lebih banyak
+              // ruang untuk form.
+              final verticalPadding = availableHeight < 600 ? 16.0 : 32.0;
 
               return SingleChildScrollView(
                 padding: EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
+                  horizontal: 24,
                   vertical: verticalPadding,
                 ),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: minHeight),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: maxContentWidth,
-                      ),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.fromLTRB(
-                              isWide ? 32 : 24,
-                              showBackButton ? 56 : (isWide ? 32 : 28),
-                              isWide ? 32 : 24,
-                              isWide ? 32 : 24,
-                            ),
-                            decoration: BoxDecoration(
-                              color: JobTrackColors.authCard,
-                              borderRadius: BorderRadius.circular(
-                                JobTrackRadii.card,
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: JobTrackColors.authShadow,
-                                  blurRadius: 40,
-                                  offset: Offset(0, 18),
-                                ),
-                              ],
-                            ),
-                            child: child,
+                  constraints: BoxConstraints(
+                    minHeight: availableHeight - verticalPadding * 2,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (showBackButton) ...[
+                        const AuthBackButton(),
+                        const SizedBox(height: 12),
+                      ],
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: maxContentWidth,
                           ),
-                          if (showBackButton)
-                            Positioned(
-                              top: 12,
-                              left: 12,
-                              child: IconButton(
-                                tooltip: 'Kembali',
-                                onPressed: () => Navigator.maybePop(context),
-                                icon: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  size: 20,
-                                ),
-                                style: IconButton.styleFrom(
-                                  backgroundColor:
-                                      JobTrackColors.authAvatarBackground,
-                                  foregroundColor: JobTrackColors.navy,
-                                  minimumSize: const Size(40, 40),
-                                  padding: EdgeInsets.zero,
-                                ),
-                              ),
-                            ),
-                        ],
+                          child: child,
+                        ),
                       ),
-                    ),
+                      // Sisa tinggi layar dibiarkan kosong di bawah; kolom
+                      // form selalu mulai cukup tinggi dari atas.
+                    ],
                   ),
                 ),
               );
             },
           ),
         ),
+      ),
     );
   }
 }
 
-/// Bagian atas halaman autentikasi: avatar, label merek opsional, judul,
-/// dan subjudul.
+/// Tombol kembali di pojok kiri atas halaman autentikasi.
+class AuthBackButton extends StatelessWidget {
+  const AuthBackButton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: IconButton(
+        tooltip: 'Kembali',
+        onPressed: () => Navigator.of(context).maybePop(),
+        icon: const Icon(Icons.arrow_back_rounded, size: 22),
+        style: IconButton.styleFrom(
+          foregroundColor: JobTrackColors.navy,
+          minimumSize: const Size(44, 44),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bagian atas form autentikasi: avatar logo, judul, dan subjudul.
+///
+/// Semua halaman auth memakai widget ini agar tampilan atasnya seragam.
 class AuthHeader extends StatelessWidget {
   const AuthHeader({
     super.key,
@@ -181,10 +170,12 @@ class AuthHeader extends StatelessWidget {
   }
 }
 
-/// Avatar bulat berisi logo JobTrack. Lencana plus opsional dipakai untuk
-/// memberi isyarat "buat akun" pada halaman register.
+/// Avatar bulat berisi logo JobTrack.
+///
+/// Lencana plus opsional dipakai untuk memberi isyarat "buat akun" pada
+/// halaman register.
 class AuthAvatar extends StatelessWidget {
-  const AuthAvatar({super.key, this.size = 104, this.showBadge = false});
+  const AuthAvatar({super.key, this.size = 88, this.showBadge = false});
 
   final double size;
   final bool showBadge;
@@ -224,7 +215,7 @@ class AuthAvatar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: JobTrackColors.blue,
                   shape: BoxShape.circle,
-                  border: Border.all(color: JobTrackColors.authCard, width: 3),
+                  border: Border.all(color: JobTrackColors.surface, width: 3),
                 ),
                 child: Icon(
                   Icons.add_rounded,
@@ -299,6 +290,114 @@ class JobTrackLogo extends StatelessWidget {
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => _monogram(),
       ),
+    );
+  }
+}
+
+/// Satu baris form autentikasi: label kecil di atas, lalu field bergaya
+/// seragam. Label dipisah dari field agar berada di atas kotak, bukan
+/// mengambang di dalam border.
+class AuthField extends StatelessWidget {
+  const AuthField({
+    super.key,
+    required this.label,
+    required this.controller,
+    required this.validator,
+    required this.hint,
+    this.keyboardType,
+    this.textInputAction = TextInputAction.next,
+    this.onFieldSubmitted,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String? Function(String?) validator;
+  final String hint;
+  final TextInputType? keyboardType;
+  final TextInputAction textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AuthFieldLabel(label),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          autocorrect: false,
+          onFieldSubmitted: onFieldSubmitted,
+          validator: validator,
+          style: const TextStyle(fontSize: 14.5, color: JobTrackColors.navy),
+          decoration: authFieldDecoration(hint: hint),
+        ),
+      ],
+    );
+  }
+}
+
+/// Field password dengan tombol tampilkan/sembunyikan.
+///
+/// Status tersembunyi dikelola di sini agar halaman login/register tidak
+/// perlu menyimpan state tambahan.
+class AuthPasswordField extends StatefulWidget {
+  const AuthPasswordField({
+    super.key,
+    required this.controller,
+    required this.validator,
+    required this.hint,
+    this.textInputAction = TextInputAction.done,
+    this.onFieldSubmitted,
+  });
+
+  final TextEditingController controller;
+  final String? Function(String?) validator;
+  final String hint;
+  final TextInputAction textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
+
+  @override
+  State<AuthPasswordField> createState() => _AuthPasswordFieldState();
+}
+
+class _AuthPasswordFieldState extends State<AuthPasswordField> {
+  bool _obscure = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AuthFieldLabel('Password'),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: widget.controller,
+          obscureText: _obscure,
+          autocorrect: false,
+          enableSuggestions: false,
+          textInputAction: widget.textInputAction,
+          onFieldSubmitted: widget.onFieldSubmitted,
+          validator: widget.validator,
+          style: const TextStyle(fontSize: 14.5, color: JobTrackColors.navy),
+          decoration: authFieldDecoration(
+            hint: widget.hint,
+            suffixIcon: IconButton(
+              tooltip: _obscure ? 'Tampilkan password' : 'Sembunyikan password',
+              onPressed: () => setState(() => _obscure = !_obscure),
+              icon: Icon(
+                _obscure
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                size: 20,
+                color: JobTrackColors.navyMuted,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -435,7 +534,7 @@ class SocialButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: JobTrackColors.navy,
-          backgroundColor: JobTrackColors.authCard,
+          backgroundColor: JobTrackColors.surface,
           side: const BorderSide(color: JobTrackColors.authBorder, width: 1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(JobTrackRadii.social),
@@ -453,41 +552,6 @@ class SocialButton extends StatelessWidget {
             const SizedBox(width: 10),
             Flexible(child: Text(label, textAlign: TextAlign.center)),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Tombol sosial bulat berisi ikon saja (dipakai login dan register).
-class SocialCircleButton extends StatelessWidget {
-  const SocialCircleButton({
-    super.key,
-    required this.tooltip,
-    required this.icon,
-    this.onPressed,
-  });
-
-  final String tooltip;
-  final Widget icon;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: SizedBox(
-        width: 52,
-        height: 52,
-        child: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            backgroundColor: JobTrackColors.authCard,
-            side: const BorderSide(color: JobTrackColors.authBorder, width: 1),
-            shape: const CircleBorder(),
-            padding: EdgeInsets.zero,
-          ),
-          child: icon,
         ),
       ),
     );
@@ -611,7 +675,7 @@ class AuthErrorBanner extends StatelessWidget {
   }
 }
 
-/// Label kecil di atas field, mengikuti gaya form pada referensi desain.
+/// Label kecil di atas field form autentikasi.
 class AuthFieldLabel extends StatelessWidget {
   const AuthFieldLabel(this.label, {super.key});
 
@@ -649,7 +713,7 @@ InputDecoration authFieldDecoration({
     suffixIcon: suffixIcon,
     suffixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
     filled: true,
-    fillColor: JobTrackColors.authCard,
+    fillColor: JobTrackColors.surface,
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     border: restingBorder,
