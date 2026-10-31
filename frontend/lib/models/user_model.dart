@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Model pengguna yang merepresentasikan objek `user` dari respons API JobTrack.
 ///
 /// Bentuk JSON dari backend (register, login, dan GET /auth/me):
@@ -81,12 +79,7 @@ class UserModel {
     }
 
     // Nilai yang tidak dikenali dianggap waktu sekarang agar aplikasi tidak
-    // crash, tetapi tetap ditandai lewat debugPrint saat pengembangan.
-    assert(() {
-      debugPrint('[UserModel] created_at tidak dikenali: $value');
-      return true;
-    }());
-
+    // crash.
     return DateTime.now();
   }
 }

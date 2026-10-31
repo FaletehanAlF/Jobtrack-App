@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Status lamaran yang benar-benar didukung tabel `job_applications`.
 ///
 /// Kolom status di database adalah ENUM('submitted', 'rejected'), jadi UI
@@ -77,10 +75,6 @@ DateTime? parseApiDate(dynamic value) {
     ).toLocal();
   }
 
-  if (kDebugMode && value != null) {
-    debugPrint('[ApplicationModel] tanggal tidak valid: $value');
-  }
-
   return null;
 }
 
@@ -155,10 +149,6 @@ class ApplicationModel {
         value.toInt(),
         isUtc: true,
       ).toLocal();
-    }
-
-    if (kDebugMode && value != null) {
-      debugPrint('[ApplicationModel] tanggal tidak valid: $value');
     }
 
     return null;

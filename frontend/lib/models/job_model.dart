@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Model lowongan kerja yang merepresentasikan objek dari respons
 /// `GET /api/jobs` backend JobTrack.
 ///
@@ -76,10 +74,6 @@ class JobModel {
     if (value is num) {
       return DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true)
           .toLocal();
-    }
-
-    if (kDebugMode && value != null) {
-      debugPrint('[JobModel] tanggal tidak valid: $value');
     }
 
     return null;
