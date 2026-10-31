@@ -9,6 +9,7 @@ import {
   EXCEL_MIME_TYPE,
 } from "../reports/application-report.js";
 import { createApplicationSchema } from "../validations/application.validation.js";
+import { notifyApplicationReceived } from "../services/notification.service.js";
 
 // Bentuk baris tabel job_applications. Hanya kolom ini yang pernah diambil
 // dari database. Kolom active_slot (kolom hasil turunan migration) sengaja
@@ -183,6 +184,31 @@ export async function createApplication(
     if (!application) {
       res.status(500).json({ message: "Gagal mengambil data lamaran" });
       return;
+    }
+
+    // Notifikasi dibuat SETELAH lamaran benar-benar tersimpan, jadi tidak
+    // pernah ada notifikasi untuk lamaran yang gagal dibuat. Kegagalan
+    // notifikasi sengaja tidak menggagalkan request: lamaran sudah sah, dan
+    // notifikasi hanya pelengkap. Kegagalan dicatat agar tidak senyap.
+    //
+    // Duplikat dicegah uq_notification_event + INSERT IGNORE, sehingga retry
+    // request yang sama tidak menghasilkan notifikasi kedua.
+    try {
+      const [applicantRows] = await db.query<RowDataPacket[]>(
+        "SELECT username FROM users WHERE id = ? LIMIT 1",
+        [applicantId],
+      );
+      const applicant = applicantRows[0] as
+        | { username?: string }
+        | undefined;
+
+      await notifyApplicationReceived(db, {
+        jobId,
+        applicationId: application.id,
+        applicantUsername: applicant?.username ?? "Pelamar",
+      });
+    } catch (notificationError) {
+      console.error("[notification]", notificationError);
     }
 
     res.status(201).json({ application });

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "tsx --test src/tests/validation.test.ts src/tests/middleware.test.ts src/tests/controller.test.ts src/tests/report.test.ts src/tests/applications.db.test.ts",
+    "test": "tsx --test src/tests/validation.test.ts src/tests/middleware.test.ts src/tests/controller.test.ts src/tests/recruiter.controller.test.ts src/tests/notification.test.ts src/tests/report.test.ts src/tests/applications.db.test.ts",
     "test:db": "tsx --test src/tests/applications.db.test.ts",
     "dev": "tsx watch src/server/server.ts",
     "start": "tsx src/server/server.ts"
