@@ -184,7 +184,6 @@ void main() {
       expect(find.text('Flutter Developer'), findsWidgets);
       expect(find.text('Data Analyst'), findsWidgets);
 
-      // Desktop memakai NavigationRail, bukan bottom navigation.
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.byType(BottomNavigationBar), findsNothing);
 

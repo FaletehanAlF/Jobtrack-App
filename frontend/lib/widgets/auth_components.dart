@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/jobtrack_theme.dart';
 
-/// Kerangka halaman autentikasi (onboarding, login, register).
-///
-/// Desain sederhana tanpa kartu: gradien lembut sebagai latar dan satu kolom
-/// form dipusatkan secara horizontal (lebar maksimum [maxContentWidth]).
-/// Pengguliran hanya aktif saat layar benar-benar pendek (mis. keyboard
-/// ponsel terbuka) supaya isian tidak terpotong dan tidak ada tampilan
-/// yang meluap.
 class AuthPageScaffold extends StatelessWidget {
   const AuthPageScaffold({
     super.key,
@@ -18,11 +11,8 @@ class AuthPageScaffold extends StatelessWidget {
 
   final Widget child;
 
-  /// Login dan register dibuka lewat Navigator sehingga butuh tombol kembali.
-  /// Onboarding adalah halaman akar, jadi tidak memakainya.
   final bool showBackButton;
 
-  /// Lebar maksimum kolom form. Di atas angka ini kolom tetap terpusat.
   static const double maxContentWidth = 420;
 
   @override
@@ -34,8 +24,6 @@ class AuthPageScaffold extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final availableHeight = constraints.maxHeight;
-              // Layar pendek memakai padding kecil agar tersisa lebih banyak
-              // ruang untuk form.
               final verticalPadding = availableHeight < 600 ? 16.0 : 32.0;
 
               return SingleChildScrollView(
@@ -62,8 +50,6 @@ class AuthPageScaffold extends StatelessWidget {
                           child: child,
                         ),
                       ),
-                      // Sisa tinggi layar dibiarkan kosong di bawah; kolom
-                      // form selalu mulai cukup tinggi dari atas.
                     ],
                   ),
                 ),
@@ -76,7 +62,6 @@ class AuthPageScaffold extends StatelessWidget {
   }
 }
 
-/// Tombol kembali di pojok kiri atas halaman autentikasi.
 class AuthBackButton extends StatelessWidget {
   const AuthBackButton({super.key});
 
@@ -97,9 +82,6 @@ class AuthBackButton extends StatelessWidget {
   }
 }
 
-/// Bagian atas form autentikasi: avatar logo, judul, dan subjudul.
-///
-/// Semua halaman auth memakai widget ini agar tampilan atasnya seragam.
 class AuthHeader extends StatelessWidget {
   const AuthHeader({
     super.key,
@@ -112,10 +94,8 @@ class AuthHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
 
-  /// Label kecil di atas judul, mis. "JobTrack" pada onboarding.
   final String? brand;
 
-  /// Menampilkan lencana plus di avatar (dipakai halaman register).
   final bool showBadge;
 
   @override
@@ -170,10 +150,6 @@ class AuthHeader extends StatelessWidget {
   }
 }
 
-/// Avatar bulat berisi logo JobTrack.
-///
-/// Lencana plus opsional dipakai untuk memberi isyarat "buat akun" pada
-/// halaman register.
 class AuthAvatar extends StatelessWidget {
   const AuthAvatar({super.key, this.size = 88, this.showBadge = false});
 
@@ -230,11 +206,6 @@ class AuthAvatar extends StatelessWidget {
   }
 }
 
-/// Logo JobTrack: gambar bulat dengan latar putih.
-///
-/// Memakai `jobtrack.png` karena format PNG didukung semua target: Android,
-/// iOS, desktop, dan Flutter Web. Bila gambar gagal dimuat, widget menampilkan
-/// monogram "JT" agar halaman tidak error.
 class JobTrackLogo extends StatelessWidget {
   const JobTrackLogo({
     super.key,
@@ -249,7 +220,6 @@ class JobTrackLogo extends StatelessWidget {
 
   static const String assetPath = 'assets/image/jobtrack.png';
 
-  /// Tampilan cadangan: monogram "JT" dengan skala mengikuti [size].
   Widget _monogram() {
     return Center(
       child: Text(
@@ -283,7 +253,6 @@ class JobTrackLogo extends StatelessWidget {
             : null,
       ),
       clipBehavior: Clip.antiAlias,
-      // Padding kecil memberi ruang antara konten PNG dan tepi lingkaran.
       padding: EdgeInsets.all(size * 0.08),
       child: Image.asset(
         assetPath,
@@ -294,9 +263,6 @@ class JobTrackLogo extends StatelessWidget {
   }
 }
 
-/// Satu baris form autentikasi: label kecil di atas, lalu field bergaya
-/// seragam. Label dipisah dari field agar berada di atas kotak, bukan
-/// mengambang di dalam border.
 class AuthField extends StatelessWidget {
   const AuthField({
     super.key,
@@ -339,10 +305,6 @@ class AuthField extends StatelessWidget {
   }
 }
 
-/// Field password dengan tombol tampilkan/sembunyikan.
-///
-/// Status tersembunyi dikelola di sini agar halaman login/register tidak
-/// perlu menyimpan state tambahan.
 class AuthPasswordField extends StatefulWidget {
   const AuthPasswordField({
     super.key,
@@ -402,10 +364,6 @@ class _AuthPasswordFieldState extends State<AuthPasswordField> {
   }
 }
 
-/// Tombol utama: biru solid, lebar penuh, tinggi 54, sudut pill.
-///
-/// Saat [loading] tombol dinonaktifkan dan menampilkan indikator berputar,
-/// sehingga request tidak terkirim dua kali.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
@@ -473,7 +431,6 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
-/// Garis pemisah dengan label di tengah, mis. "Atau".
 class AuthDivider extends StatelessWidget {
   const AuthDivider({super.key, this.label = 'Atau'});
 
@@ -512,7 +469,6 @@ class AuthDivider extends StatelessWidget {
   }
 }
 
-/// Tombol sosial lebar penuh dengan ikon dan label (dipakai onboarding).
 class SocialButton extends StatelessWidget {
   const SocialButton({
     super.key,
@@ -558,7 +514,6 @@ class SocialButton extends StatelessWidget {
   }
 }
 
-/// Ikon "G" Google dengan warna solid, tanpa aset tambahan.
 class GoogleIcon extends StatelessWidget {
   const GoogleIcon({super.key, this.size = 22});
 
@@ -583,10 +538,6 @@ class GoogleIcon extends StatelessWidget {
   }
 }
 
-/// Baris tautan di bawah form, mis. "Belum punya akun? Daftar".
-///
-/// Memakai [Wrap] agar tetap rapi di layar sempit saat teks pertanyaan
-/// panjang — [Row] biasa akan overflow di sana.
 class AuthLinkRow extends StatelessWidget {
   const AuthLinkRow({
     super.key,
@@ -632,10 +583,6 @@ class AuthLinkRow extends StatelessWidget {
   }
 }
 
-/// Kotak pesan gagal di atas tombol submit.
-///
-/// Dipilih daripada SnackBar karena pesannya tetap terlihat selama pengguna
-/// memperbaiki isian, tidak hilang setelah beberapa detik.
 class AuthErrorBanner extends StatelessWidget {
   const AuthErrorBanner({super.key, required this.message});
 
@@ -675,7 +622,6 @@ class AuthErrorBanner extends StatelessWidget {
   }
 }
 
-/// Label kecil di atas field form autentikasi.
 class AuthFieldLabel extends StatelessWidget {
   const AuthFieldLabel(this.label, {super.key});
 
@@ -694,10 +640,6 @@ class AuthFieldLabel extends StatelessWidget {
   }
 }
 
-/// Gaya seragam untuk semua field di form autentikasi.
-///
-/// Label dirender terpisah lewat [AuthFieldLabel] agar posisinya berada di
-/// atas kotak field, bukan mengambang di dalam border.
 InputDecoration authFieldDecoration({
   required String hint,
   Widget? suffixIcon,

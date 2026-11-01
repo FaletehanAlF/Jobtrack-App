@@ -1,8 +1,3 @@
-// Tes dasar untuk halaman onboarding dan alur navigasi autentikasi JobTrack.
-//
-// Memastikan aplikasi berhasil dibangun, elemen utama onboarding tampil,
-// dan tombol "Mulai Sekarang" serta "Masuk" membuka halaman register dan login.
-
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,9 +9,6 @@ import 'package:frontend/pages/register_page.dart';
 
 void main() {
   setUp(() {
-    // Gerbang sesi membaca token dari perangkat. Mock kosong berarti
-    // "belum pernah login", jadi pemeriksaan tidak menyentuh jaringan dan
-    // aplikasi diarahkan ke onboarding seperti alur pengguna baru.
     SharedPreferences.setMockInitialValues({});
   });
 

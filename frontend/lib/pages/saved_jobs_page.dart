@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/jobtrack_theme.dart';
 
-/// Halaman placeholder untuk tab "Tersimpan".
-///
-/// Backend belum menyediakan endpoint bookmark/saved jobs.
 class SavedJobsPage extends StatelessWidget {
   const SavedJobsPage({super.key});
 

@@ -3,10 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../theme/jobtrack_theme.dart';
 
-/// Halaman profil read-only.
-///
-/// Menampilkan data yang tersedia dari `UserModel` dan menyediakan tombol
-/// logout. Pengeditan profil belum didukung backend.
 class ProfilePage extends StatelessWidget {
   const ProfilePage({
     super.key,

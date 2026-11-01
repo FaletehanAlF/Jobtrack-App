@@ -21,13 +21,8 @@ import '../services/job_service.dart';
 import '../services/notification_service.dart';
 import '../services/recruiter_service.dart';
 import '../theme/jobtrack_theme.dart';
+import '../widgets/jobtrack_brand.dart';
 
-/// Shell utama setelah login.
-///
-/// Jobseeker mendapat navigasi Dashboard, Lowongan, Lamaran, Tersimpan, dan
-/// Profil. Recruiter mendapat Dashboard pelamar, Lowongan, dan Profil. Di
-/// layar desktop, navigasi bawah diganti [NavigationRail] agar ruang vertikal
-/// dashboard lebih lega.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
@@ -41,19 +36,14 @@ class HomePage extends StatefulWidget {
 
   final UserModel? user;
 
-  /// Bisa diisi saat pengujian agar test tidak benar-benar ke backend.
   final JobService? jobService;
 
-  /// Bisa diisi saat pengujian agar test tidak benar-benar ke backend.
   final ApplicationService? applicationService;
 
-  /// Bisa diisi saat pengujian agar pemeriksaan sesi tidak ke backend.
   final AuthService? authService;
 
-  /// Bisa diisi saat pengujian agar dashboard recruiter tidak ke backend.
   final RecruiterService? recruiterService;
 
-  /// Bisa diisi saat pengujian agar notifikasi tidak ke backend.
   final NotificationService? notificationService;
 
   @override
@@ -79,26 +69,20 @@ class _HomePageState extends State<HomePage> {
   bool _loadingRecruiterApplicants = true;
   String? _recruiterApplicantsError;
 
-  /// Ringkasan dashboard recruiter (`GET /api/recruiter/dashboard`).
   RecruiterDashboardData? _recruiterDashboard;
   bool _loadingRecruiterDashboard = true;
   String? _recruiterDashboardError;
 
-  /// Filter dan pagination daftar pelamar. Nilai null berarti tanpa filter.
   int? _applicantJobFilter;
   String? _applicantStatusFilter;
   int? _applicantsTotal;
   bool _hasMoreApplicants = false;
   bool _loadingMoreApplicants = false;
 
-  /// Id lamaran yang sedang diubah statusnya.
   int? _updatingApplicationId;
 
-  /// Ukuran satu halaman daftar pelamar.
   static const int _applicantsPageSize = 50;
 
-  /// Notifikasi. Jumlah belum dibaca disimpan terpisah dari daftar supaya
-  /// badge pada lonceng selalu berasal dari respons server.
   List<NotificationModel> _notifications = const [];
   int _unreadNotifications = 0;
   bool _loadingNotifications = false;
@@ -108,12 +92,6 @@ class _HomePageState extends State<HomePage> {
   bool _markingAllRead = false;
   int? _updatingNotificationId;
 
-  /// True setelah tab Notifikasi pernah dibuka.
-  ///
-  /// Daftar notifikasi tidak dimuat saat aplikasi dibuka: cukup jumlah belum
-  /// dibaca untuk badge. Ini menghindari memuat data yang belum dibutuhkan
-  /// sekaligus mencegah indikator loading berputar di tab yang belum
-  /// terlihat — semua tab dibangun oleh IndexedStack.
   bool _notificationsOpened = false;
 
   static const int _notificationsPageSize = 50;
@@ -121,7 +99,6 @@ class _HomePageState extends State<HomePage> {
   NotificationService get _notificationService =>
       widget.notificationService ?? NotificationService();
 
-  /// Indeks tab notifikasi. Jobseeker: 5, recruiter: 4 (setelah Profil).
   int get _notificationsTabIndex => _user?.role == 'recruiter' ? 4 : 5;
 
   RecruiterService get _recruiterService =>
@@ -174,7 +151,6 @@ class _HomePageState extends State<HomePage> {
           return;
         }
       } catch (_) {
-        // Server tidak terjangkau: tetap tampilkan shell dengan data yang ada.
         if (!mounted) return;
         setState(() {
           _loadingUser = false;
@@ -192,20 +168,13 @@ class _HomePageState extends State<HomePage> {
       _loadingUser = false;
     });
 
-    // Endpoint lamaran jobseeker dan endpoint pelamar recruiter terpisah.
-    // Masing-masing hanya dipanggil untuk role yang berhak agar tidak memicu
-    // 403 yang tidak perlu.
     if (user.role == 'jobseeker') {
       await _loadApplications();
     } else if (user.role == 'recruiter') {
-      // Dashboard dan daftar pelamar dimuat sekali di awal; masing-masing
-      // endpoint sudah dibatasi kepemilikan oleh backend.
       await _loadRecruiterDashboard();
       await _loadRecruiterApplicants();
     }
 
-    // Hanya jumlah belum dibaca yang dimuat di awal — cukup untuk badge.
-    // Daftar lengkap baru diambil saat tab Notifikasi dibuka.
     await _refreshUnreadCount();
 
     if (mounted && user.role != 'jobseeker' && user.role != 'recruiter') {
@@ -300,7 +269,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Memuat halaman pelamar berikutnya tanpa menghapus data yang sudah ada.
   Future<void> _loadMoreApplicants() async {
     if (_loadingMoreApplicants || !_hasMoreApplicants) return;
 
@@ -363,21 +331,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Memilih filter lowongan, lalu memuat ulang daftar pelamar.
   Future<void> _setApplicantJobFilter(int? jobId) async {
     if (_applicantJobFilter == jobId) return;
     setState(() => _applicantJobFilter = jobId);
     await _loadRecruiterApplicants();
   }
 
-  /// Memilih filter status, lalu memuat ulang daftar pelamar.
   Future<void> _setApplicantStatusFilter(String? status) async {
     if (_applicantStatusFilter == status) return;
     setState(() => _applicantStatusFilter = status);
     await _loadRecruiterApplicants();
   }
 
-  /// Mengubah status satu lamaran lewat backend, lalu memperbarui daftar.
   Future<void> _updateApplicationStatus(
     RecruiterApplicantModel applicant,
     String status,
@@ -411,7 +376,6 @@ class _HomePageState extends State<HomePage> {
         ),
       );
 
-      // Statistik dashboard ikut berubah saat status berubah.
       await _loadRecruiterDashboard();
     } catch (error) {
       if (!mounted) return;
@@ -424,12 +388,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Membuka daftar pelamar terfilter untuk satu lowongan.
   Future<void> _openApplicantsForJob(RecruiterJobStats job) async {
     setState(() {
       _applicantJobFilter = job.id;
       _applicantStatusFilter = null;
-      _currentIndex = 2; // Tab "Pelamar" pada navigasi recruiter.
+      _currentIndex = 2;
     });
     await _loadRecruiterApplicants();
   }
@@ -442,16 +405,10 @@ class _HomePageState extends State<HomePage> {
         _loadRecruiterDashboard(),
         _loadRecruiterApplicants(),
       ],
-      // Hanya badge yang diperbarui saat pull-to-refresh, kecuali tab
-      // Notifikasi sudah pernah dibuka.
       if (_notificationsOpened) _loadNotifications() else _refreshUnreadCount(),
     ]);
   }
 
-  /// Memuat halaman pertama notifikasi beserta jumlah belum dibaca.
-  ///
-  /// Jumlah belum dibaca diambil dari respons daftar (`unread`), sehingga
-  /// badge dan isi daftar selalu berasal dari sumber yang sama.
   Future<void> _loadNotifications() async {
     if (mounted) {
       setState(() {
@@ -482,16 +439,12 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Hanya memperbarui badge, tanpa memuat seluruh daftar.
   Future<void> _refreshUnreadCount() async {
     try {
       final unread = await _notificationService.fetchUnreadCount();
       if (!mounted) return;
       setState(() => _unreadNotifications = unread);
-    } catch (_) {
-      // Badge hanya indikator tambahan; kegagalan memuatnya tidak boleh
-      // mengganggu halaman yang sedang dipakai.
-    }
+    } catch (_) {}
   }
 
   Future<void> _loadMoreNotifications() async {
@@ -520,10 +473,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Menandai satu notifikasi sudah dibaca.
-  ///
-  /// UI diperbarui setelah server mengonfirmasi, supaya badge dan status
-  /// baca tidak pernah berbeda dari keadaan sebenarnya di database.
   Future<void> _markNotificationRead(NotificationModel notification) async {
     if (notification.isRead || _updatingNotificationId != null) return;
 
@@ -540,9 +489,6 @@ class _HomePageState extends State<HomePage> {
         _updatingNotificationId = null;
       });
 
-      // Badge diambil ulang dari server, bukan dikurangi sendiri, supaya
-      // angkanya tetap benar walau notifikasi lain juga berubah di perangkat
-      // lain atau ada yang sudah dibaca sebelumnya.
       await _refreshUnreadCount();
     } catch (error) {
       if (!mounted) return;
@@ -553,7 +499,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Menandai seluruh notifikasi milik pengguna sudah dibaca.
   Future<void> _markAllNotificationsRead() async {
     if (_markingAllRead || _unreadNotifications == 0) return;
 
@@ -570,7 +515,6 @@ class _HomePageState extends State<HomePage> {
         _markingAllRead = false;
       });
 
-      // Konfirmasi ulang ke server bahwa tidak ada sisa yang belum dibaca.
       await _refreshUnreadCount();
     } catch (error) {
       if (!mounted) return;
@@ -581,10 +525,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Membuka entitas terkait sebuah notifikasi.
-  ///
-  /// Jobseeker diarahkan ke riwayat lamaran; recruiter ke daftar pelamar
-  /// (terfilter lowongan bila notifikasi membawa job_id).
   void _openNotification(NotificationModel notification) {
     if (!notification.isRead) {
       _markNotificationRead(notification);
@@ -596,13 +536,13 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _applicantJobFilter = notification.jobId;
         _applicantStatusFilter = null;
-        _currentIndex = 2; // Tab "Pelamar".
+        _currentIndex = 2;
       });
       _loadRecruiterApplicants();
       return;
     }
 
-    setState(() => _currentIndex = 2); // Tab "Lamaran".
+    setState(() => _currentIndex = 2);
   }
 
   void _openNotificationsTab() {
@@ -610,11 +550,6 @@ class _HomePageState extends State<HomePage> {
     _loadNotifications();
   }
 
-  /// Halaman daftar notifikasi, dipakai kedua role.
-  ///
-  /// Sebelum tabnya pernah dibuka, widget ini hanya placeholder kosong.
-  /// Tanpa ini, NotificationsPage (dan indikator loading-nya) ikut dibangun
-  /// oleh IndexedStack sejak awal.
   Widget _notificationsView() {
     if (!_notificationsOpened) return const SizedBox.shrink();
 
@@ -635,18 +570,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Ikon lonceng dengan indikator jumlah belum dibaca.
-  ///
-  /// Badge hanya ditampilkan bila memang ada notifikasi belum dibaca, dan
-  /// angkanya dibatasi "99+" agar tidak melebarkan AppBar.
   Widget _notificationBell() {
     final unread = _unreadNotifications;
 
     return IconButton(
       key: const Key('home-notifications-button'),
-      tooltip: unread > 0
-          ? '$unread notifikasi belum dibaca'
-          : 'Notifikasi',
+      tooltip: unread > 0 ? '$unread notifikasi belum dibaca' : 'Notifikasi',
       onPressed: _openNotificationsTab,
       icon: Stack(
         clipBehavior: Clip.none,
@@ -689,8 +618,6 @@ class _HomePageState extends State<HomePage> {
     if (_currentIndex == index) return;
     setState(() => _currentIndex = index);
 
-    // Membuka tab Notifikasi lewat navigasi juga memuat ulang daftarnya,
-    // supaya notifikasi baru (mis. dari perangkat lain) langsung terlihat.
     if (index == _notificationsTabIndex) {
       _loadNotifications();
     }
@@ -743,11 +670,6 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
 
-    // Setelah logout, riwayat dibersihkan dan pengguna diarahkan ke Login.
-    // `(route) => false` membuang Home (dan semua rute di bawahnya), sehingga
-    // tombol Back web/sistem tidak bisa membuka kembali Home yang terlindungi.
-    // Halaman Login ini juga menjadi rute akar, jadi Back tidak menutup
-    // aplikasi secara tiba-tiba.
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -998,19 +920,26 @@ class _HomePageState extends State<HomePage> {
         return Scaffold(
           backgroundColor: JobTrackColors.background,
           appBar: AppBar(
-            backgroundColor: Colors.transparent,
+            backgroundColor: JobTrackColors.surface,
+            surfaceTintColor: Colors.transparent,
+            scrolledUnderElevation: 0,
             elevation: 0,
             foregroundColor: JobTrackColors.navy,
-            title: Text(
-              titles[currentIndex],
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: JobTrackColors.navy,
-              ),
+            centerTitle: false,
+            titleSpacing: 16,
+            shape: const Border(
+              bottom: BorderSide(color: JobTrackColors.border),
             ),
+            title: currentIndex == 0
+                ? const JobTrackBrand(logoSize: 30)
+                : Text(
+                    titles[currentIndex],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: JobTrackColors.navy,
+                    ),
+                  ),
             actions: [
-              // Lonceng hanya muncul bila tab Notifikasi tidak sedang dibuka,
-              // karena di tab itu daftarnya sudah tampil lengkap.
               if (currentIndex != _notificationsTabIndex) _notificationBell(),
               const SizedBox(width: 4),
             ],
@@ -1042,23 +971,21 @@ class _HomePageState extends State<HomePage> {
                         fontWeight: FontWeight.w600,
                       ),
                       leading: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: JobTrackColors.blueSoft,
-                            borderRadius: BorderRadius.all(Radius.circular(10)),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'JT',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: JobTrackColors.blue,
-                            ),
-                          ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isExtended ? 16 : 0,
+                          vertical: 8,
                         ),
+                        child: isExtended
+                            ? const Align(
+                                alignment: Alignment.centerLeft,
+                                child: JobTrackBrand(logoSize: 34),
+                              )
+                            : const Center(
+                                child: JobTrackBrand(
+                                  logoSize: 40,
+                                  showText: false,
+                                ),
+                              ),
                       ),
                       selectedIndex: currentIndex,
                       onDestinationSelected: _selectTab,

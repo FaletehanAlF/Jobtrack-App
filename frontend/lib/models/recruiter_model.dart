@@ -1,16 +1,5 @@
 import 'application_model.dart';
 
-/// Ringkasan satu lowongan milik recruiter beserta hitungan pelamarnya.
-///
-/// Bentuk JSON dari `GET /api/recruiter/dashboard`:
-/// {
-///   "id": 3, "title": "...", "company": "...", "location": "...",
-///   "created_at": "...",
-///   "applicant_count": 4, "submitted_count": 3, "rejected_count": 1
-/// }
-///
-/// Hitungan dihitung database (COUNT), bukan dari daftar panjang di
-/// aplikasi, sehingga tetap benar tanpa mengambil seluruh baris pelamar.
 class RecruiterJobStats {
   final int id;
   final String title;
@@ -47,7 +36,6 @@ class RecruiterJobStats {
 
   static int _parseInt(dynamic value, String fieldName) {
     if (value is num) return value.toInt();
-    // COUNT dari driver database bisa berupa string pada beberapa konfigurasi.
     if (value is String) {
       final parsed = int.tryParse(value);
       if (parsed != null) return parsed;
@@ -59,7 +47,6 @@ class RecruiterJobStats {
   }
 }
 
-/// Total dihitung dari lowongan milik recruiter yang sedang login.
 class RecruiterDashboardStats {
   final int jobs;
   final int applicants;
@@ -99,7 +86,6 @@ class RecruiterDashboardStats {
   }
 }
 
-/// Hasil lengkap `GET /api/recruiter/dashboard`.
 class RecruiterDashboardData {
   final RecruiterDashboardStats stats;
   final List<RecruiterJobStats> jobs;
@@ -128,7 +114,6 @@ class RecruiterDashboardData {
   }
 }
 
-/// Hasil `GET /api/recruiter/applicants` dengan pagination.
 class RecruiterApplicantsPageData {
   final List<RecruiterApplicantModel> applicants;
   final int total;
@@ -142,7 +127,6 @@ class RecruiterApplicantsPageData {
     required this.offset,
   });
 
-  /// True bila masih ada halaman berikutnya setelah data ini.
   bool get hasMore => offset + applicants.length < total;
 
   factory RecruiterApplicantsPageData.fromJson(Map<String, dynamic> json) {

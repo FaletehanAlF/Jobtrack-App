@@ -3,12 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/recruiter_model.dart';
 import '../theme/jobtrack_theme.dart';
 
-/// Dashboard recruiter: ringkasan angka dan daftar lowongan miliknya.
-///
-/// Semua data berasal dari `GET /api/recruiter/dashboard`, yang sudah
-/// dibatasi `jobs.recruiter_id` dari token di backend. Halaman ini tidak
-/// menghitung ulang statistik dari data mentah: angka datang dari COUNT
-/// di database.
 class RecruiterDashboardPage extends StatelessWidget {
   const RecruiterDashboardPage({
     super.key,
@@ -25,7 +19,6 @@ class RecruiterDashboardPage extends StatelessWidget {
   final String? error;
   final Future<void> Function() onRefresh;
 
-  /// Membuka daftar pelamar, terfilter pada satu lowongan.
   final ValueChanged<RecruiterJobStats> onOpenApplicants;
 
   final String? userName;
@@ -116,7 +109,6 @@ class _Greeting extends StatelessWidget {
   }
 }
 
-/// Empat angka utama. Semuanya berasal dari COUNT di database.
 class _StatsOverview extends StatelessWidget {
   const _StatsOverview({
     required this.stats,
@@ -149,15 +141,12 @@ class _StatsOverview extends StatelessWidget {
           style: TextStyle(fontSize: 12.5, color: JobTrackColors.navyMuted),
         ),
         const SizedBox(height: 12),
-        // Error saat data lama masih ada ditampilkan inline, bukan
-        // menggantikan angka yang sudah tampil.
         if (error != null) ...[
           _InlineError(message: error!, onRetry: onRetry),
           const SizedBox(height: 12),
         ],
         LayoutBuilder(
           builder: (context, constraints) {
-            // Dua kolom di layar sempit, empat kolom bila cukup lebar.
             final columns = constraints.maxWidth >= 720 ? 4 : 2;
             final cards = <Widget>[
               _StatCard(
@@ -199,10 +188,6 @@ class _StatsOverview extends StatelessWidget {
                 for (var row = 0; row < (cards.length / columns).ceil(); row++)
                   Padding(
                     padding: EdgeInsets.only(bottom: row == 0 ? 12 : 0),
-                    // IntrinsicHeight memberi Row tinggi yang pasti, sehingga
-                    // `stretch` bisa menyamakan tinggi kartu. Tanpa ini, Row
-                    // di dalam ListView menerima tinggi tak terbatas dan
-                    // layout gagal ("BoxConstraints forces an infinite height").
                     child: IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -293,7 +278,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-/// Daftar lowongan milik recruiter beserta jumlah pelamarnya.
 class _JobsPanel extends StatelessWidget {
   const _JobsPanel({
     required this.jobs,

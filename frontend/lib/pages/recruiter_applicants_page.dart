@@ -7,12 +7,6 @@ import '../theme/jobtrack_theme.dart';
 import '../widgets/application_widgets.dart';
 import '../widgets/excel_export_button.dart';
 
-/// Manajemen pelamar untuk recruiter.
-///
-/// Data berasal dari `GET /api/recruiter/applicants`, yang sudah dibatasi
-/// `jobs.recruiter_id` dari token di backend. Filter di halaman ini hanya
-/// mempersempit hasil yang memang sudah dibatasi kepemilikan — bukan
-/// mekanisme keamanan.
 class RecruiterApplicantsPage extends StatelessWidget {
   const RecruiterApplicantsPage({
     super.key,
@@ -43,36 +37,28 @@ class RecruiterApplicantsPage extends StatelessWidget {
   final ApplicationService? applicationService;
   final ReportDownloadHandler? downloadHandler;
 
-  /// Lowongan milik recruiter, untuk pilihan filter.
   final List<RecruiterJobStats> jobs;
 
-  /// Filter yang sedang aktif. Null berarti tanpa filter.
   final int? selectedJobId;
   final ValueChanged<int?>? onJobFilterChanged;
 
-  /// Hanya 'submitted' dan 'rejected' yang didukung database.
   final String? selectedStatus;
   final ValueChanged<String?>? onStatusFilterChanged;
 
-  /// Mengubah status satu lamaran. Null berarti tombol tidak ditampilkan.
   final Future<void> Function(RecruiterApplicantModel, String)? onUpdateStatus;
 
-  /// Id lamaran yang sedang diperbarui, untuk menonaktifkan tombolnya saja.
   final int? updatingApplicationId;
 
-  /// Jumlah total baris yang cocok di server (bukan hanya halaman ini).
   final int? total;
 
   final bool hasMore;
   final Future<void> Function()? onLoadMore;
   final bool loadingMore;
 
-  /// Lowongan yang sedang dibuka dari dashboard; dipakai untuk judul.
   final int? initialJobId;
 
   bool get _hasFilters => selectedJobId != null || selectedStatus != null;
 
-  /// Nama lowongan yang sedang difilter, bila ada.
   String? get _selectedJobTitle {
     final jobId = selectedJobId;
     if (jobId == null) return null;
@@ -267,8 +253,6 @@ class RecruiterApplicantsPage extends StatelessWidget {
     );
   }
 
-  /// Ringkasan jumlah pelamar. Menyebut filter aktif agar angka tidak
-  /// disalahartikan sebagai total keseluruhan.
   String _subtitle(int totalCount) {
     if (totalCount == 0) {
       return _hasFilters
@@ -289,7 +273,6 @@ class RecruiterApplicantsPage extends StatelessWidget {
   }
 }
 
-/// Baris filter: lowongan dan status.
 class _Filters extends StatelessWidget {
   const _Filters({
     required this.jobs,
@@ -317,8 +300,6 @@ class _Filters extends StatelessWidget {
       runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // Dropdown hanya muncul bila daftar lowongan tersedia; tanpa itu
-        // filternya tidak punya pilihan yang bermakna.
         if (jobs.isNotEmpty && onJobFilterChanged != null)
           SizedBox(
             width: 260,
@@ -354,7 +335,6 @@ class _Filters extends StatelessWidget {
                   value: null,
                   child: Text('Semua status'),
                 ),
-                // Hanya status yang ada di ENUM database.
                 DropdownMenuItem<String?>(
                   value: ApplicationStatus.submitted,
                   child: Text('Dikirim'),
@@ -478,9 +458,6 @@ class _ApplicantCard extends StatelessWidget {
               ),
             ],
           ),
-          // Hanya status yang didukung database yang bisa dipilih. Tombol
-          // untuk status yang sedang aktif tidak ditampilkan agar tidak ada
-          // aksi yang tidak mengubah apa pun.
           if (updateStatus != null) ...[
             const SizedBox(height: 6),
             if (updating)

@@ -3,11 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/notification_model.dart';
 import '../theme/jobtrack_theme.dart';
 
-/// Halaman daftar notifikasi untuk jobseeker dan recruiter.
-///
-/// Data berasal dari `GET /api/notifications`, yang sudah dibatasi
-/// `recipient_id` dari token di backend. Halaman ini tidak memfilter
-/// berdasarkan identitas pengguna — backend yang menentukan.
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({
     super.key,
@@ -28,7 +23,6 @@ class NotificationsPage extends StatelessWidget {
 
   final List<NotificationModel> notifications;
 
-  /// Jumlah belum dibaca dari backend (bukan dihitung dari halaman ini).
   final int unread;
 
   final bool loading;
@@ -37,7 +31,6 @@ class NotificationsPage extends StatelessWidget {
   final Future<void> Function(NotificationModel) onMarkRead;
   final Future<void> Function() onMarkAllRead;
 
-  /// Membuka entitas terkait (lowongan/pelamar/lamaran) bila tersedia.
   final ValueChanged<NotificationModel> onOpenNotification;
 
   final bool markingAllRead;
@@ -106,8 +99,6 @@ class NotificationsPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      // Tombol tandai semua hanya aktif bila benar-benar ada
-                      // yang belum dibaca, agar tidak ada aksi kosong.
                       OutlinedButton.icon(
                         key: const Key('notifications-mark-all'),
                         onPressed: unread == 0 || markingAllRead
@@ -315,7 +306,6 @@ class _NotificationCard extends StatelessWidget {
     );
   }
 
-  /// Tanggal dan jam singkat, mis. "27/10/2026 14:05".
   static String _formatDateTime(DateTime? date) {
     if (date == null) return 'Waktu tidak tersedia';
 

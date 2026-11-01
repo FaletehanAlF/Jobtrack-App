@@ -1,21 +1,11 @@
 import '../models/application_model.dart';
 import 'api_service.dart';
 
-/// Layanan riwayat lamaran dan laporan Excel.
-///
-/// [ApiService] menambahkan header `Authorization: Bearer <token>` secara
-/// otomatis. Backend mengambil `applicant_id`/`recruiter_id` dari token
-/// tersebut, bukan dari parameter klien, sehingga setiap role hanya menerima
-/// data yang menjadi haknya.
 class ApplicationService {
   final ApiService _api;
 
   ApplicationService({ApiService? api}) : _api = api ?? ApiService();
 
-  /// Mengambil seluruh riwayat lamaran pengguna dari `GET /api/applications`.
-  ///
-  /// Backend mengurutkan dari lamaran terbaru dan mengembalikan
-  /// `{ "applications": [ ... ] }`.
   Future<List<ApplicationModel>> fetchApplications() async {
     final data = await _api.get('/applications');
 
@@ -32,10 +22,6 @@ class ApplicationService {
     throw ApiException(0, 'Respons daftar lamaran tidak sesuai format.');
   }
 
-  /// Mengambil pelamar untuk lowongan milik recruiter yang sedang login.
-  ///
-  /// Backend memfilter dengan `jobs.recruiter_id` dari JWT dan hanya
-  /// mengembalikan username pelamar.
   Future<List<RecruiterApplicantModel>> fetchRecruiterApplicants() async {
     final data = await _api.get('/applications/recruiter');
 
@@ -52,7 +38,6 @@ class ApplicationService {
     throw ApiException(0, 'Respons daftar pelamar tidak sesuai format.');
   }
 
-  /// Mengunduh laporan lamaran milik jobseeker sebagai .xlsx.
   Future<ApiDownload> exportApplications() {
     return _api.getFile(
       '/applications/export',
@@ -60,7 +45,6 @@ class ApplicationService {
     );
   }
 
-  /// Mengunduh laporan pelamar dari lowongan milik recruiter sebagai .xlsx.
   Future<ApiDownload> exportRecruiterApplicants() {
     return _api.getFile(
       '/applications/recruiter/export',

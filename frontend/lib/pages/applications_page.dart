@@ -6,12 +6,6 @@ import '../theme/jobtrack_theme.dart';
 import '../widgets/application_widgets.dart';
 import '../widgets/excel_export_button.dart';
 
-/// Halaman riwayat lamaran milik pengguna yang sedang login.
-///
-/// Data berasal dari `GET /api/applications`. Backend hanya mengembalikan
-/// lamaran dengan `applicant_id` yang diambil dari token JWT, sehingga halaman
-/// ini tidak dapat dipakai untuk melihat lamaran pengguna lain. Tombol ekspor
-/// meminta file .xlsx dari endpoint backend dengan filter kepemilikan yang sama.
 class ApplicationsPage extends StatelessWidget {
   const ApplicationsPage({
     super.key,

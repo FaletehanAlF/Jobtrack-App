@@ -1,33 +1,13 @@
 import 'application_model.dart';
 
-/// Jenis notifikasi yang dikenal backend.
-///
-/// Nilainya sama dengan ENUM `notifications.type` pada migration
-/// `table-notifications.sql`. Nilai tak dikenal tetap ditampilkan apa adanya
-/// agar notifikasi lama tidak hilang dari daftar.
 class NotificationType {
-  /// Jobseeker melamar lowongan milik recruiter.
   static const String applicationReceived = 'application_received';
 
-  /// Recruiter menolak lamaran.
   static const String applicationRejected = 'application_rejected';
 
   const NotificationType._();
 }
 
-/// Satu notifikasi milik pengguna yang sedang login.
-///
-/// Bentuk JSON dari `GET /api/notifications`:
-/// {
-///   "id": 5,
-///   "type": "application_rejected",
-///   "message": "Lamaranmu untuk \"Backend Developer\" ditolak.",
-///   "job_id": 3,
-///   "application_id": 9,
-///   "created_at": "2026-10-27T10:00:00.000Z",
-///   "read_at": null,
-///   "is_read": false
-/// }
 class NotificationModel {
   final int id;
   final String type;
@@ -68,17 +48,12 @@ class NotificationModel {
       applicationId: _parseOptionalInt(json['application_id']),
       createdAt: parseApiDate(json['created_at']),
       readAt: readAt,
-      // `is_read` dari server diutamakan; read_at dipakai sebagai cadangan
-      // bila field itu tidak ada.
       isRead: json['is_read'] is bool
           ? json['is_read'] as bool
           : readAt != null,
     );
   }
 
-  /// Menandai notifikasi ini sudah dibaca tanpa menunggu respons server.
-  ///
-  /// `createdAt` dan field lain dipertahankan; hanya status bacanya berubah.
   NotificationModel copyAsRead() {
     return NotificationModel(
       id: id,
@@ -96,7 +71,6 @@ class NotificationModel {
 
   bool get isApplicationReceived => type == NotificationType.applicationReceived;
 
-  /// Ikon yang sesuai jenis notifikasi.
   bool get isKnownType => isApplicationRejected || isApplicationReceived;
 
   static int? _parseOptionalInt(dynamic value) {
@@ -106,7 +80,6 @@ class NotificationModel {
   }
 }
 
-/// Hasil `GET /api/notifications` dengan pagination dan jumlah belum dibaca.
 class NotificationPageData {
   final List<NotificationModel> notifications;
   final int total;

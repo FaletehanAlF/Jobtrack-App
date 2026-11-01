@@ -1,14 +1,3 @@
-// Tes dashboard recruiter dan manajemen pelamar.
-//
-// Yang dijaga di sini adalah perilaku UI terhadap data dari backend:
-// - dashboard menampilkan angka yang dikirim server, bukan hitungan karangan;
-// - filter lowongan/status diteruskan sebagai parameter request;
-// - aksi ubah status memanggil backend lalu memperbarui kartu;
-// - error dan empty state tampil, dan pengguna bisa mencoba lagi.
-//
-// Otorisasi sebenarnya diuji di backend (src/tests/recruiter.controller.test.ts).
-// Di sini service-nya palsu, jadi tes ini TIDAK membuktikan keamanan data.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -28,14 +17,11 @@ class _FakeJobService extends JobService {
   Future<List<JobModel>> fetchJobs() async => const [];
 }
 
-/// ApplicationService palsu: mengembalikan riwayat kosong tanpa jaringan.
 class _FakeApplicationService extends ApplicationService {
   @override
   Future<List<ApplicationModel>> fetchApplications() async => const [];
 }
 
-/// Mencatat parameter yang diterima, supaya tes bisa memastikan filter
-/// benar-benar diteruskan ke backend (bukan hanya menyaring di UI).
 class _FakeRecruiterService extends RecruiterService {
   _FakeRecruiterService({
     this.dashboard,
@@ -178,7 +164,6 @@ void _setSurfaceSize(WidgetTester tester, Size size) {
   });
 }
 
-/// Membangun HomePage recruiter dan menunggu data awal selesai dimuat.
 Future<void> _pumpRecruiterHome(
   WidgetTester tester,
   _FakeRecruiterService service,
@@ -224,7 +209,6 @@ void main() {
 
     await _pumpRecruiterHome(tester, service);
 
-    // Angka berasal dari respons server, bukan dihitung dari daftar.
     expect(
       tester.widget<Text>(find.byKey(const Key('recruiter-stat-jobs'))).data,
       '2',
@@ -248,7 +232,6 @@ void main() {
       '2',
     );
 
-    // Daftar lowongan beserta jumlah pelamar per lowongan.
     expect(find.byType(RecruiterDashboardPage), findsOneWidget);
     expect(find.text('Backend Developer'), findsOneWidget);
     expect(find.text('Flutter Developer'), findsOneWidget);
@@ -284,7 +267,6 @@ void main() {
     expect(find.text('Terjadi kesalahan pada server'), findsOneWidget);
     expect(find.text('Coba Lagi'), findsOneWidget);
 
-    // Coba Lagi memanggil ulang backend.
     final callsBefore = service.dashboardCalls;
     await tester.tap(find.text('Coba Lagi').first);
     await tester.pumpAndSettle();
@@ -315,7 +297,6 @@ void main() {
     await tester.tap(find.byKey(const Key('recruiter-job-3-open')));
     await tester.pumpAndSettle();
 
-    // Filter lowongan diteruskan ke backend sebagai job_id.
     expect(service.applicantRequests.last['job_id'], 3);
     expect(find.text('budi'), findsOneWidget);
   });
@@ -371,12 +352,10 @@ void main() {
     await tester.tap(find.byKey(const Key('recruiter-9-reject')));
     await tester.pumpAndSettle();
 
-    // Status yang dikirim hanya nilai yang ada di ENUM database.
     expect(service.updateRequests, [
       {'id': 9, 'status': 'rejected'},
     ]);
 
-    // Kartu ikut berubah tanpa perlu memuat ulang manual.
     expect(find.text('Ditolak'), findsWidgets);
     expect(find.byKey(const Key('recruiter-9-restore')), findsOneWidget);
     expect(find.byKey(const Key('recruiter-9-reject')), findsNothing);
@@ -459,9 +438,6 @@ void main() {
         home: HomePage(
           user: jobseeker,
           jobService: _FakeJobService(),
-          // Tanpa service palsu, HomePage jobseeker akan memanggil backend
-          // sungguhan dan indikator loading berputar tanpa henti sehingga
-          // pumpAndSettle tidak pernah selesai.
           applicationService: _FakeApplicationService(),
           recruiterService: _FakeRecruiterService(),
         ),
@@ -469,7 +445,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Menu recruiter tidak muncul di navigasi jobseeker.
     expect(find.text('Pelamar'), findsNothing);
     expect(find.text('Tersimpan'), findsOneWidget);
   });

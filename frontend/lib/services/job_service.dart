@@ -1,21 +1,11 @@
 import '../models/job_model.dart';
 import 'api_service.dart';
 
-// ApiException is defined in api_service.dart and re-exported via same file.
-
-
-/// Layanan lowongan kerja.
-///
-/// Menggunakan [ApiService] yang sudah menangani token, sehingga
-/// `GET /api/jobs` otomatis membawa header Authorization.
 class JobService {
   final ApiService _api;
 
   JobService({ApiService? api}) : _api = api ?? ApiService();
 
-  /// Mengambil seluruh lowongan dari `GET /api/jobs`.
-  ///
-  /// Backend mengembalikan `{ "jobs": [ ... ] }`.
   Future<List<JobModel>> fetchJobs() async {
     final data = await _api.get('/jobs');
 
@@ -32,7 +22,6 @@ class JobService {
     return <JobModel>[];
   }
 
-  /// Mengambil detail satu lowongan dari `GET /api/jobs/:id`.
   Future<JobModel> fetchJob(int id) async {
     final data = await _api.get('/jobs/$id');
 

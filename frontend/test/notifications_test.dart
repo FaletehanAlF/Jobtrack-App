@@ -1,9 +1,3 @@
-// Tes UI notifikasi: daftar, badge belum dibaca, aksi tandai dibaca,
-// loading/error/empty state, dan navigasi terkait.
-//
-// Otorisasi sebenarnya diuji di backend (src/tests/notification.test.ts).
-// Di sini NotificationService palsu, jadi tes ini TIDAK membuktikan keamanan.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -52,7 +46,6 @@ class _FakeRecruiterService extends RecruiterService {
   );
 }
 
-/// NotificationService palsu yang mencatat pemanggilan.
 class _FakeNotificationService extends NotificationService {
   _FakeNotificationService({
     this.notifications = const [],
@@ -195,8 +188,6 @@ void main() {
 
     expect(find.byKey(const Key('home-notifications-badge')), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
-    // Badge memakai endpoint ringan; daftar lengkap belum dimuat sebelum
-    // tab Notifikasi dibuka.
     expect(service.unreadCountCalls, 1);
     expect(service.listCalls, 0);
   });
@@ -235,7 +226,6 @@ void main() {
 
     expect(find.byType(NotificationsPage), findsOneWidget);
     expect(find.text('Lamaranmu untuk "Backend" ditolak.'), findsOneWidget);
-    // Waktu ditampilkan bersama notifikasi.
     expect(find.textContaining('27/10/2026'), findsOneWidget);
   });
 
@@ -257,17 +247,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.markedIds, [1]);
-    // Satu notifikasi tersisa belum dibaca: tombol bacanya masih ada.
     expect(find.byKey(const Key('notification-1-read')), findsNothing);
     expect(find.byKey(const Key('notification-2-read')), findsOneWidget);
 
-    // Pindah ke tab lain lewat BottomNavigationBar. Di lebar 1280 navigasi
-    // memakai NavigationRail yang labelnya tersembunyi (labelType.none),
-    // jadi teks "Dashboard" tidak bisa dijadikan target ketukan.
     await tester.tap(find.byIcon(Icons.home_outlined).last);
     await tester.pumpAndSettle();
 
-    // Badge di AppBar menunjukkan sisa 1 yang belum dibaca.
     expect(find.byKey(const Key('home-notifications-badge')), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
   });
@@ -350,7 +335,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Notifikasi tidak ditemukan'), findsOneWidget);
-    // Server menolak, jadi UI tidak boleh mengaku sudah dibaca.
     expect(find.byKey(const Key('notification-1-read')), findsOneWidget);
   });
 
@@ -379,7 +363,6 @@ void main() {
     await tester.tap(find.byKey(const Key('notification-1')));
     await tester.pumpAndSettle();
 
-    // Diarahkan ke daftar pelamar, bukan tab lain.
     expect(find.text('Pelamar'), findsWidgets);
     expect(service.markedIds, contains(1));
   });

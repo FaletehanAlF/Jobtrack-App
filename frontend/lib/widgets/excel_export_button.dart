@@ -7,10 +7,6 @@ import '../utils/file_download.dart';
 
 typedef ReportDownloadHandler = Future<void> Function(ApiDownload file);
 
-/// Tombol ekspor bersama untuk halaman jobseeker dan recruiter.
-///
-/// File selalu dibuat backend. Widget ini hanya menangani status loading,
-/// pemanggilan unduhan browser, serta pesan berhasil/gagal.
 class ExcelExportButton extends StatefulWidget {
   const ExcelExportButton({
     super.key,
@@ -72,9 +68,6 @@ class _ExcelExportButtonState extends State<ExcelExportButton> {
 
   @override
   Widget build(BuildContext context) {
-    // Unduhan .xlsx hanya untuk Flutter Web. Di build mobile tombol tidak
-    // ditampilkan agar aplikasi mobile yang sudah ada tidak berubah. Handler
-    // khusus tetap dipakai oleh widget test yang berjalan di Flutter VM.
     if (!kIsWeb && widget.downloadHandler == null) {
       return const SizedBox.shrink();
     }

@@ -9,11 +9,6 @@ import '../services/job_service.dart';
 import '../utils/validators.dart';
 import '../widgets/auth_components.dart';
 
-/// Halaman login: memasukkan email dan password untuk masuk ke aplikasi.
-///
-/// State yang dikelola: isi dua field, status loading, dan pesan error dari
-/// backend. Tampilan dipasang di [AuthPageScaffold] agar kerangkanya sama
-/// dengan halaman register.
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
@@ -22,14 +17,10 @@ class LoginPage extends StatefulWidget {
     this.applicationService,
   });
 
-  /// Bisa diisi saat pengujian agar login tidak benar-benar ke backend.
   final AuthService? authService;
 
-  /// Diteruskan ke [HomePage] setelah login berhasil. Bisa diisi saat
-  /// pengujian agar halaman tujuan tidak memanggil backend.
   final JobService? jobService;
 
-  /// Diteruskan ke [HomePage] setelah login berhasil.
   final ApplicationService? applicationService;
 
   @override
@@ -71,20 +62,13 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      // pushAndRemoveUntil membuang seluruh riwayat rute auth (onboarding,
-      // login, register) sehingga tombol Back tidak bisa membuka halaman
-      // Login setelah pengguna berhasil masuk.
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
           builder: (_) => HomePage(
-            // Data user dari respons login dipakai langsung, sehingga Home
-            // tidak perlu memanggil GET /auth/me sekali lagi.
             user: user,
             jobService: widget.jobService,
             applicationService: widget.applicationService,
-            // Service yang sama diteruskan agar sesi (token) yang dipakai
-            // Home identik dengan yang baru saja dibuat saat login.
             authService: widget.authService,
           ),
         ),
@@ -98,7 +82,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  /// Pesan yang ramah pengguna untuk error dari [AuthService].
   String _messageFor(Object error) {
     if (error is ApiException) return error.message;
     return 'Terjadi kesalahan. Coba lagi.';
@@ -106,8 +89,6 @@ class _LoginPageState extends State<LoginPage> {
 
   void _openRegister() {
     if (_loading) return;
-    // `push` (bukan pushReplacement): Back dari halaman daftar harus kembali
-    // ke form login. Riwayat rute dibersihkan sendiri saat login berhasil.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const RegisterPage()),
@@ -132,7 +113,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-/// Form login yang digunakan di halaman login.
 class _LoginForm extends StatelessWidget {
   const _LoginForm({
     required this.formKey,

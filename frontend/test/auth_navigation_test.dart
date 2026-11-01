@@ -1,23 +1,3 @@
-// Tes perilaku tombol Back setelah login dan logout.
-//
-// Bug yang dijaga di sini: setelah login berhasil, menekan Back (tombol Back
-// browser di Flutter Web, atau tombol sistem Android) mengembalikan pengguna
-// ke halaman Login meskipun sesinya masih valid.
-//
-// Penyebabnya ada di susunan rute, bukan di tombol Back itu sendiri. Alur
-// autentikasi menumpuk rute dengan `Navigator.push`:
-//
-//   onboarding (akar) → login → register → login → ...
-//
-// Setelah login berhasil, `pushReplacement` hanya mengganti rute paling atas.
-// Rute auth di bawahnya (onboarding, login sebelumnya, register) tetap
-// tinggal di stack, sehingga Back berjalan mundur ke rute-rute itu — dan dari
-// sana pengguna bisa membuka form Login lagi walau sudah masuk.
-//
-// Tes di bawah membangun susunan rute yang sama seperti aplikasi sebenarnya,
-// lalu menekan Back lewat `handlePopRoute()` — jalur yang dipakai tombol Back
-// browser Flutter Web maupun tombol sistem Android.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,17 +13,13 @@ import 'package:frontend/services/application_service.dart';
 import 'package:frontend/services/auth_service.dart';
 import 'package:frontend/services/job_service.dart';
 
-/// AuthService palsu: tidak menyentuh jaringan.
 class _FakeAuthService extends AuthService {
   _FakeAuthService({this.loginResult, this.currentUser, this.loginError});
 
-  /// Hasil login yang berhasil. Null berarti login ditolak.
   final UserModel? loginResult;
 
-  /// Hasil `GET /auth/me`. Null berarti sesi tidak berlaku.
   final UserModel? currentUser;
 
-  /// Bila diisi, login melempar error ini (mis. ApiException 401).
   final Object? loginError;
 
   int loginCalls = 0;
@@ -59,7 +35,6 @@ class _FakeAuthService extends AuthService {
     if (error != null) throw error;
     final result = loginResult;
     if (result == null) {
-      // Sama seperti backend: kredensial salah dijawab 401 dengan pesan ini.
       throw ApiException(401, 'Email atau password salah');
     }
     return result;
@@ -92,8 +67,6 @@ final _user = UserModel(
   createdAt: DateTime(2020),
 );
 
-/// Viewport tes default (800x600) terlalu pendek untuk kartu auth, sehingga
-/// tombol submit berada di luar layar dan ketukan tidak mengenai apa pun.
 void _useTallViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(800, 1400);
   tester.view.devicePixelRatio = 1.0;
@@ -103,11 +76,6 @@ void _useTallViewport(WidgetTester tester) {
   });
 }
 
-/// Membangun susunan rute yang sama dengan aplikasi sebenarnya: onboarding
-/// sebagai rute akar, lalu login di-push di atasnya.
-///
-/// `JobTrackApp._openLogin` melakukan persis ini — `Navigator.push` ke
-/// [LoginPage] dari konteks rute onboarding.
 Future<_FakeAuthService> _pumpOnboardingThenLogin(
   WidgetTester tester, {
   UserModel? loginResult,
@@ -145,7 +113,6 @@ Future<_FakeAuthService> _pumpOnboardingThenLogin(
   return authService;
 }
 
-/// Mengisi form login lalu menekan tombol Masuk.
 Future<void> _submitLogin(WidgetTester tester) async {
   await tester.enterText(
     find.byType(TextFormField).first,
@@ -157,7 +124,6 @@ Future<void> _submitLogin(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// Menekan tombol Back: jalur yang sama dengan Back browser dan tombol sistem.
 Future<void> _pressBack(WidgetTester tester) async {
   await tester.binding.handlePopRoute();
   await tester.pumpAndSettle();
@@ -180,13 +146,11 @@ void main() {
 
     await _submitLogin(tester);
 
-    // Login berhasil: shell utama tampil, satu request saja.
     expect(find.byType(HomePage), findsOneWidget);
     expect(authService.loginCalls, 1);
 
     await _pressBack(tester);
 
-    // Inti perbaikan: riwayat auth tidak boleh tersisa di bawah Home.
     expect(
       find.byType(LoginPage),
       findsNothing,
@@ -217,7 +181,6 @@ void main() {
     await _submitLogin(tester);
     expect(find.byType(HomePage), findsOneWidget);
 
-    // Logout hanya lewat tindakan eksplisit pengguna di tab Profil.
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Keluar'));
@@ -242,7 +205,6 @@ void main() {
   ) async {
     _useTallViewport(tester);
 
-    // loginResult null berarti backend menolak kredensial.
     await _pumpOnboardingThenLogin(tester);
 
     await _submitLogin(tester);
@@ -257,8 +219,6 @@ void main() {
   ) async {
     _useTallViewport(tester);
 
-    // Perilaku normal yang harus tetap berfungsi: sebelum login, Back dari
-    // form login memang seharusnya kembali ke onboarding.
     await _pumpOnboardingThenLogin(tester, loginResult: _user);
 
     expect(find.byType(LoginPage), findsOneWidget);
@@ -276,8 +236,6 @@ void main() {
 
     final navigatorKey = GlobalKey<NavigatorState>();
 
-    // HomePage tanpa data user akan memeriksa sesi lewat GET /auth/me.
-    // currentUser null berarti token tidak berlaku.
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,
@@ -293,8 +251,6 @@ void main() {
     expect(find.byType(LoginPage), findsOneWidget);
     expect(find.byType(HomePage), findsNothing);
 
-    // Halaman Login hasil pengalihan ini adalah satu-satunya rute, jadi Back
-    // tidak bisa kembali ke Home yang tidak sah.
     expect(navigatorKey.currentState!.canPop(), isFalse);
   });
 
@@ -318,7 +274,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Berpindah tab tidak menumpuk rute dan tidak mengarahkan ke Login.
     await tester.tap(find.text('Lowongan'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Lamaran'));
@@ -328,7 +283,6 @@ void main() {
     expect(find.byType(LoginPage), findsNothing);
     expect(navigatorKey.currentState!.canPop(), isFalse);
 
-    // Back pada shell utama tidak menutup sesi pengguna.
     await _pressBack(tester);
     expect(find.byType(HomePage), findsOneWidget);
     expect(find.byType(LoginPage), findsNothing);

@@ -6,11 +6,6 @@ import '../services/auth_service.dart';
 import '../utils/validators.dart';
 import '../widgets/auth_components.dart';
 
-/// Halaman pendaftaran akun baru.
-///
-/// Setelah pendaftaran berhasil, pengguna diarahkan ke [LoginPage] dengan
-/// semua riwayat rute auth dibersihkan. Tampilan dipasang di
-/// [AuthPageScaffold] agar kerangkanya sama dengan halaman login.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -78,7 +73,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  /// Pesan yang ramah pengguna untuk error dari [AuthService].
   String _messageFor(Object error) {
     if (error is ApiException) return error.message;
     return 'Terjadi kesalahan. Coba lagi.';
@@ -86,7 +80,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _openLogin() {
     if (_loading) return;
-    // `push`: Back dari form login kembali ke halaman daftar.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -112,7 +105,6 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 }
 
-/// Form pendaftaran: struktur dan jaraknya sama dengan form login.
 class _RegisterForm extends StatelessWidget {
   const _RegisterForm({
     required this.formKey,

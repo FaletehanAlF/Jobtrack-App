@@ -25,7 +25,6 @@ class _EmptyApplicationService extends ApplicationService {
   }
 }
 
-/// AuthService palsu: logout tidak menyentuh penyimpanan sungguhan.
 class _FakeAuthService extends AuthService {
   int logoutCalls = 0;
 
@@ -107,7 +106,6 @@ void main() {
     await tester.tap(find.text('Keluar'));
     await tester.pumpAndSettle();
 
-    // Token dihapus lewat AuthService, lalu pengguna diarahkan ke Login.
     expect(authService.logoutCalls, 1);
     expect(find.byType(LoginPage), findsOneWidget);
     expect(find.byType(HomePage), findsNothing);
@@ -138,7 +136,6 @@ void main() {
     await tester.tap(find.text('Keluar'));
     await tester.pumpAndSettle();
 
-    // Login menjadi satu-satunya rute: tidak ada Home terlindungi di bawahnya.
     expect(navigatorKey.currentState!.canPop(), isFalse);
 
     await tester.binding.handlePopRoute();

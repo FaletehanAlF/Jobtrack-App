@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/application_model.dart';
 import '../theme/jobtrack_theme.dart';
 
-/// Chip status lamaran. Hanya status yang didukung backend yang punya
-/// tampilan khusus; status tak dikenal tetap ditampilkan sebagai teks.
 class ApplicationStatusChip extends StatelessWidget {
   const ApplicationStatusChip({super.key, required this.status, this.label});
 
@@ -56,7 +54,6 @@ class ApplicationStatusChip extends StatelessWidget {
   }
 }
 
-/// Kartu satu lamaran, dipakai di dashboard dan halaman riwayat.
 class ApplicationCard extends StatelessWidget {
   const ApplicationCard({super.key, required this.application, this.onTap});
 
@@ -151,7 +148,6 @@ class ApplicationCard extends StatelessWidget {
   }
 }
 
-/// Satu baris ikon + teks kecil di dalam kartu lamaran.
 class _MetaItem extends StatelessWidget {
   const _MetaItem({required this.icon, required this.text});
 

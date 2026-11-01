@@ -21,8 +21,6 @@ class _FakeJobService extends JobService {
   Future<List<JobModel>> fetchJobs() async => const [];
 }
 
-/// RecruiterService palsu untuk HomePage: dashboard dan daftar pelamar
-/// sekarang diambil lewat service ini, bukan ApplicationService.
 class _FakeRecruiterService extends RecruiterService {
   _FakeRecruiterService({this.applicants = const []});
 
@@ -376,8 +374,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tab Pelamar ada di navigasi recruiter, dan datanya dari
-      // RecruiterService (bukan endpoint jobseeker).
       expect(find.text('Pelamar'), findsOneWidget);
       expect(find.text('Tersimpan'), findsNothing);
       expect(recruiterService.dashboardCalls, 1);
@@ -385,13 +381,11 @@ void main() {
       expect(service.jobseekerFetchCalls, 0);
       expect(service.recruiterFetchCalls, 0);
 
-      // Lima tab recruiter: Dashboard, Lowongan, Pelamar, Profil, Notifikasi.
       expect(
         tester.widget<IndexedStack>(find.byType(IndexedStack)).children.length,
         5,
       );
 
-      // Pindah ke tab Pelamar lalu pastikan pelamarnya tampil.
       await tester.tap(find.text('Pelamar'));
       await tester.pumpAndSettle();
       expect(find.byType(RecruiterApplicantsPage), findsOneWidget);

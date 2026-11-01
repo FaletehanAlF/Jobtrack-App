@@ -1,8 +1,3 @@
-/// Status lamaran yang benar-benar didukung tabel `job_applications`.
-///
-/// Kolom status di database adalah ENUM('submitted', 'rejected'), jadi UI
-/// hanya memberi label khusus untuk dua nilai ini. Nilai lain tetap
-/// ditampilkan apa adanya agar data yang tidak dikenal tidak disembunyikan.
 class ApplicationStatus {
   static const String submitted = 'submitted';
   static const String rejected = 'rejected';
@@ -10,7 +5,6 @@ class ApplicationStatus {
   const ApplicationStatus._();
 }
 
-/// Label status yang konsisten untuk UI maupun ringkasan laporan.
 String applicationStatusLabel(String status) {
   switch (status) {
     case ApplicationStatus.submitted:
@@ -22,11 +16,6 @@ String applicationStatusLabel(String status) {
   }
 }
 
-/// Ringkasan lowongan yang ikut dikirim pada respons `GET /api/applications`.
-///
-/// Endpoint lamaran hanya mengirim judul, perusahaan, dan lokasi lowongan,
-/// bukan seluruh detail lowongan. Detail lengkap tetap diambil dari
-/// `GET /api/jobs/:id` bila pengguna membuka lowongannya.
 class ApplicationJob {
   final int id;
   final String title;
@@ -58,10 +47,6 @@ class ApplicationJob {
   }
 }
 
-/// Mem-parse tanggal dari respons API menjadi waktu lokal.
-///
-/// Dipakai [ApplicationModel] dan model recruiter. Nilai yang hilang atau
-/// tidak valid menjadi null, bukan waktu sekarang.
 DateTime? parseApiDate(dynamic value) {
   if (value is String) {
     final parsed = DateTime.tryParse(value);
@@ -78,16 +63,6 @@ DateTime? parseApiDate(dynamic value) {
   return null;
 }
 
-/// Satu baris riwayat lamaran milik pengguna yang sedang login.
-///
-/// Bentuk JSON dari backend:
-/// {
-///   "id": 12,
-///   "job_id": 3,
-///   "status": "submitted",
-///   "created_at": "2026-10-20T14:45:29.000Z",
-///   "job": { "id": 3, "title": "...", "company": "...", "location": "..." }
-/// }
 class ApplicationModel {
   final int id;
   final int jobId;
@@ -125,8 +100,6 @@ class ApplicationModel {
 
   bool get isRejected => status == ApplicationStatus.rejected;
 
-  /// Label status untuk UI. Status yang belum dikenal tetap ditampilkan
-  /// agar pengguna tidak melihat riwayat yang tampak kosong.
   String get statusLabel => applicationStatusLabel(status);
 
   static int _parseInt(dynamic value, String fieldName) {
@@ -137,7 +110,6 @@ class ApplicationModel {
     );
   }
 
-  /// Tanggal yang hilang/tidak valid menjadi null, bukan waktu sekarang.
   static DateTime? _parseDate(dynamic value) {
     if (value is String) {
       final parsed = DateTime.tryParse(value);
@@ -155,10 +127,6 @@ class ApplicationModel {
   }
 }
 
-/// Satu baris pelamar yang dikirim `GET /api/applications/recruiter`.
-///
-/// Backend hanya mengirim username pelamar, bukan email atau kolom sensitif
-/// lain. `job` adalah lowongan milik recruiter yang sedang login.
 class RecruiterApplicantModel {
   final int id;
   final String status;
@@ -214,11 +182,6 @@ class RecruiterApplicantModel {
   }
 }
 
-/// Hitungan ringkasan yang diturunkan dari daftar lamaran milik pengguna.
-///
-/// Data asalnya tetap database: daftar lamaran diterima dari
-/// `GET /api/applications` yang sudah difilter berdasarkan `applicant_id`
-/// dari token JWT di backend.
 class ApplicationStats {
   final int total;
   final int submitted;

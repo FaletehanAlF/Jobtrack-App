@@ -6,12 +6,6 @@ import '../models/user_model.dart';
 import '../theme/jobtrack_theme.dart';
 import '../widgets/application_widgets.dart';
 
-/// Tab "Beranda": dashboard ringkasan lamaran, lowongan terbaru, dan
-/// riwayat lamaran terbaru milik pengguna.
-///
-/// Semua data berasal dari backend: lowongan dari `GET /api/jobs` dan
-/// lamaran dari `GET /api/applications`. Shell [HomePage] memuat keduanya
-/// satu kali lalu meneruskannya ke sini.
 class HomeTab extends StatefulWidget {
   const HomeTab({
     super.key,
@@ -241,7 +235,6 @@ class _Greeting extends StatelessWidget {
   }
 }
 
-/// Tiga angka utama: total lamaran, status Dikirim, dan status Ditolak.
 class _ApplicationsOverview extends StatelessWidget {
   const _ApplicationsOverview({
     required this.stats,
@@ -385,7 +378,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-/// Panel lowongan terbaru beserta pencarian dan filter lokasi.
 class _JobsPanel extends StatelessWidget {
   const _JobsPanel({
     required this.title,
@@ -468,7 +460,6 @@ class _JobsPanel extends StatelessWidget {
   }
 }
 
-/// Panel lima lamaran terbaru. Tombol "Lihat semua" membuka tab Lamaran.
 class _RecentApplicationsPanel extends StatelessWidget {
   const _RecentApplicationsPanel({
     required this.applications,

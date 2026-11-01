@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/job_model.dart';
 import '../theme/jobtrack_theme.dart';
 
-/// Halaman daftar lowongan. Data lowongan diambil dari shell [HomePage].
 class JobsPage extends StatelessWidget {
   const JobsPage({
     super.key,

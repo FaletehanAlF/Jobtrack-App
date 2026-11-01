@@ -1,24 +1,3 @@
-/// Model lowongan kerja yang merepresentasikan objek dari respons
-/// `GET /api/jobs` backend JobTrack.
-///
-/// Bentuk JSON yang dikirim backend:
-/// {
-///   "id": 1,
-///   "recruiter_id": 2,
-///   "title": "...",
-///   "description": "...",
-///   "company": "...",
-///   "location": "...",
-///   "created_at": "2026-10-20T14:45:29.000Z",
-///   "updated_at": "2026-10-20T14:45:29.000Z"
-/// }
-///
-/// Aturan parsing:
-/// - [id] dan [recruiterId] wajib ada dan bertipe nomor. Jika tidak, parsing
-///   melempar [FormatException] karena ID tidak boleh disamarkan.
-/// - Kolom teks ([title], [description], [company], [location]) boleh null
-///   dan diubah menjadi string kosong agar UI tidak crash.
-/// - Tanggal yang hilang atau tidak valid dijadikan null, bukan waktu sekarang.
 class JobModel {
   final int id;
   final int recruiterId;
@@ -63,8 +42,6 @@ class JobModel {
     );
   }
 
-  /// Memasang [DateTime] dari string/angka. Mengembalikan null jika nilai
-  /// tidak ada atau tidak valid, bukan menggantinya dengan waktu sekarang.
   static DateTime? _parseDate(dynamic value) {
     if (value is String) {
       final parsed = DateTime.tryParse(value);

@@ -1,17 +1,11 @@
 import '../models/notification_model.dart';
 import 'api_service.dart';
 
-/// Layanan notifikasi untuk jobseeker dan recruiter.
-///
-/// [ApiService] menambahkan header `Authorization: Bearer <token>`.
-/// Penerima notifikasi ditentukan backend dari JWT, bukan dari parameter
-/// yang dikirim klien — tidak ada `user_id` yang bisa dipalsukan di sini.
 class NotificationService {
   final ApiService _api;
 
   NotificationService({ApiService? api}) : _api = api ?? ApiService();
 
-  /// `GET /api/notifications` dengan pagination.
   Future<NotificationPageData> fetchNotifications({
     int limit = 50,
     int offset = 0,
@@ -28,9 +22,6 @@ class NotificationService {
     throw ApiException(0, 'Respons notifikasi tidak sesuai format.');
   }
 
-  /// `GET /api/notifications/unread-count`.
-  ///
-  /// Dipakai untuk indikator pada ikon lonceng tanpa memuat daftar penuh.
   Future<int> fetchUnreadCount() async {
     final data = await _api.get('/notifications/unread-count');
 
@@ -43,7 +34,6 @@ class NotificationService {
     throw ApiException(0, 'Respons jumlah notifikasi tidak sesuai format.');
   }
 
-  /// `PATCH /api/notifications/:id/read`.
   Future<NotificationModel> markRead(int notificationId) async {
     final data = await _api.patch('/notifications/$notificationId/read', {});
 
@@ -57,7 +47,6 @@ class NotificationService {
     throw ApiException(0, 'Respons baca notifikasi tidak sesuai format.');
   }
 
-  /// `PATCH /api/notifications/read-all`.
   Future<void> markAllRead() async {
     await _api.patch('/notifications/read-all', {});
   }
