@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/recruiter_model.dart';
 import '../theme/jobtrack_theme.dart';
@@ -431,7 +432,7 @@ class _JobStatsCard extends StatelessWidget {
                       ),
                       minimumSize: const Size(0, 32),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: const TextStyle(
+                      textStyle: GoogleFonts.montserrat(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                       ),

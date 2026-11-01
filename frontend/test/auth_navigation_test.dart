@@ -186,6 +186,8 @@ void main() {
     await tester.ensureVisible(find.text('Keluar'));
     await tester.tap(find.text('Keluar'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-logout-button')));
+    await tester.pumpAndSettle();
 
     expect(authService.logoutCalls, 1);
     expect(find.byType(HomePage), findsNothing);

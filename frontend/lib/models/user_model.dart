@@ -41,8 +41,10 @@ class UserModel {
     }
 
     if (value is num) {
-      return DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true)
-          .toLocal();
+      return DateTime.fromMillisecondsSinceEpoch(
+        value.toInt(),
+        isUtc: true,
+      ).toLocal();
     }
 
     return DateTime.now();

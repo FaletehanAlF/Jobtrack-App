@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/job_model.dart';
 import '../theme/jobtrack_theme.dart';
@@ -10,6 +11,10 @@ class JobsPage extends StatelessWidget {
     required this.loading,
     required this.error,
     required this.onRefresh,
+    this.currentUserId,
+    this.onCreateJob,
+    this.onEditJob,
+    this.onDeleteJob,
   });
 
   final List<JobModel> jobs;
@@ -17,60 +22,23 @@ class JobsPage extends StatelessWidget {
   final String? error;
   final Future<void> Function() onRefresh;
 
+  /// ID pengguna yang sedang login, dipakai untuk menentukan lowongan mana
+  /// yang boleh diubah atau dihapus oleh recruiter.
+  final int? currentUserId;
+
+  final Future<void> Function()? onCreateJob;
+  final Future<void> Function(JobModel job)? onEditJob;
+  final Future<void> Function(JobModel job)? onDeleteJob;
+
+  bool _canManage(JobModel job) {
+    return (onEditJob != null || onDeleteJob != null) &&
+        currentUserId != null &&
+        job.recruiterId == currentUserId;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.cloud_off_outlined,
-                size: 48,
-                color: JobTrackColors.navyMuted,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: JobTrackColors.navyMuted,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: onRefresh,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: JobTrackColors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (jobs.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            'Belum ada lowongan tersedia.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14.5, color: JobTrackColors.navyMuted),
-          ),
-        ),
-      );
-    }
+    final canCreate = onCreateJob != null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -91,20 +59,50 @@ class JobsPage extends StatelessWidget {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1000),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (var index = 0; index < jobs.length; index++) ...[
-                        if (index > 0) const SizedBox(height: 12),
-                        _JobCard(
-                          job: jobs[index],
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => JobDetailPage(job: jobs[index]),
-                              ),
-                            );
-                          },
-                        ),
+                      if (canCreate) ...[
+                        _ManageHeader(onCreateJob: onCreateJob!),
+                        const SizedBox(height: 14),
                       ],
+                      if (loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (error != null)
+                        _JobsError(message: error!, onRetry: onRefresh)
+                      else if (jobs.isEmpty)
+                        _JobsEmpty(canCreate: canCreate)
+                      else
+                        Column(
+                          children: [
+                            for (
+                              var index = 0;
+                              index < jobs.length;
+                              index++
+                            ) ...[
+                              if (index > 0) const SizedBox(height: 12),
+                              _JobCard(
+                                job: jobs[index],
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          JobDetailPage(job: jobs[index]),
+                                    ),
+                                  );
+                                },
+                                onEdit: _canManage(jobs[index])
+                                    ? () => onEditJob?.call(jobs[index])
+                                    : null,
+                                onDelete: _canManage(jobs[index])
+                                    ? () => onDeleteJob?.call(jobs[index])
+                                    : null,
+                              ),
+                            ],
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -117,14 +115,149 @@ class JobsPage extends StatelessWidget {
   }
 }
 
-class _JobCard extends StatelessWidget {
-  const _JobCard({required this.job, required this.onTap});
+class _ManageHeader extends StatelessWidget {
+  const _ManageHeader({required this.onCreateJob});
 
-  final JobModel job;
-  final VoidCallback onTap;
+  final Future<void> Function() onCreateJob;
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Expanded(
+          child: Text(
+            'Kelola lowongan yang kamu buat di sini.',
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.45,
+              color: JobTrackColors.navyMuted,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        FilledButton.icon(
+          key: const Key('jobs-create-button'),
+          onPressed: onCreateJob,
+          icon: const Icon(Icons.add, size: 18),
+          label: const Text('Buat lowongan'),
+          style: FilledButton.styleFrom(
+            backgroundColor: JobTrackColors.blue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: GoogleFonts.montserrat(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _JobsError extends StatelessWidget {
+  const _JobsError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 48),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.cloud_off_outlined,
+            size: 48,
+            color: JobTrackColors.navyMuted,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              color: JobTrackColors.navyMuted,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: JobTrackColors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Coba Lagi'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JobsEmpty extends StatelessWidget {
+  const _JobsEmpty({this.canCreate = false});
+
+  final bool canCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+      decoration: BoxDecoration(
+        color: JobTrackColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: JobTrackColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.work_off_outlined,
+            size: 44,
+            color: JobTrackColors.navyMuted,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            canCreate
+                ? 'Belum ada lowongan. Buat lowongan pertamamu untuk mulai '
+                      'menerima pelamar.'
+                : 'Belum ada lowongan tersedia.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14.5,
+              height: 1.5,
+              color: JobTrackColors.navyMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JobCard extends StatelessWidget {
+  const _JobCard({
+    required this.job,
+    required this.onTap,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  final JobModel job;
+  final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final canManage = onEdit != null || onDelete != null;
+
     return Material(
       color: JobTrackColors.surface,
       borderRadius: BorderRadius.circular(14),
@@ -140,22 +273,86 @@ class _JobCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                job.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: JobTrackColors.navy,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                job.company,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: JobTrackColors.blue,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          job.title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: JobTrackColors.navy,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          job.company,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: JobTrackColors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (canManage) ...[
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      key: Key('job-${job.id}-menu'),
+                      tooltip: 'Kelola lowongan',
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: JobTrackColors.navyMuted,
+                      ),
+                      onSelected: (value) {
+                        if (value == 'edit') onEdit?.call();
+                        if (value == 'delete') onDelete?.call();
+                      },
+                      itemBuilder: (context) => [
+                        if (onEdit != null)
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.edit_outlined,
+                                  size: 18,
+                                  color: JobTrackColors.navy,
+                                ),
+                                SizedBox(width: 10),
+                                Text('Ubah'),
+                              ],
+                            ),
+                          ),
+                        if (onDelete != null)
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: JobTrackColors.danger,
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Hapus',
+                                  style: TextStyle(
+                                    color: JobTrackColors.danger,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 8),
               Row(

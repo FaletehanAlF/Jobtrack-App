@@ -27,17 +27,6 @@ class JobTrackColors {
 
   static const Color disabled = Color(0xFFB9C6D3);
 
-
-  static const LinearGradient authGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [authBackgroundTop, authBackgroundBottom],
-  );
-
-  static const Color authBackgroundTop = Color(0xFFEEF3F9);
-
-  static const Color authBackgroundBottom = Color(0xFFE3EBF5);
-
   static const Color authBorder = Color(0xFFD9E1EA);
 
   static const Color authAvatarBackground = Color(0xFFF1F5FA);

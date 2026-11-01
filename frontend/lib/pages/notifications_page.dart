@@ -120,9 +120,7 @@ class NotificationsPage extends StatelessWidget {
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: JobTrackColors.blue,
-                          side: const BorderSide(
-                            color: JobTrackColors.border,
-                          ),
+                          side: const BorderSide(color: JobTrackColors.border),
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -165,7 +163,9 @@ class NotificationsPage extends StatelessWidget {
                                       )
                                     : const Icon(Icons.expand_more, size: 18),
                                 label: Text(
-                                  loadingMore ? 'Memuat...' : 'Muat lebih banyak',
+                                  loadingMore
+                                      ? 'Memuat...'
+                                      : 'Muat lebih banyak',
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: JobTrackColors.blue,
@@ -236,9 +236,7 @@ class _NotificationCard extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Icon(
-                  isRejected
-                      ? Icons.cancel_outlined
-                      : Icons.work_outline,
+                  isRejected ? Icons.cancel_outlined : Icons.work_outline,
                   size: 20,
                   color: isRejected
                       ? JobTrackColors.danger

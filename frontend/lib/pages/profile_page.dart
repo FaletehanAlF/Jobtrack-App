@@ -4,11 +4,7 @@ import '../models/user_model.dart';
 import '../theme/jobtrack_theme.dart';
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({
-    super.key,
-    this.user,
-    required this.onLogout,
-  });
+  const ProfilePage({super.key, this.user, required this.onLogout});
 
   final UserModel? user;
   final VoidCallback onLogout;
@@ -54,18 +50,13 @@ class ProfilePage extends StatelessWidget {
         Text(
           currentUser?.email ?? '',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 14,
-            color: JobTrackColors.navyMuted,
-          ),
+          style: const TextStyle(fontSize: 14, color: JobTrackColors.navyMuted),
         ),
         const SizedBox(height: 24),
         _ProfileRow(label: 'Role', value: _roleLabel(currentUser?.role)),
         _ProfileRow(
           label: 'Bergabung',
-          value: currentUser == null
-              ? '-'
-              : _formatDate(currentUser.createdAt),
+          value: currentUser == null ? '-' : _formatDate(currentUser.createdAt),
         ),
         const SizedBox(height: 24),
         SizedBox(
@@ -87,10 +78,7 @@ class ProfilePage extends StatelessWidget {
         const Text(
           'Pengeditan profil belum tersedia.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12.5,
-            color: JobTrackColors.navyMuted,
-          ),
+          style: TextStyle(fontSize: 12.5, color: JobTrackColors.navyMuted),
         ),
       ],
     );

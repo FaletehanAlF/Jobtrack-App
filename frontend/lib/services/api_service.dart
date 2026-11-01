@@ -122,9 +122,9 @@ class ApiService {
 
   Future<dynamic> get(String endpoint, {Map<String, String>? query}) async {
     final headers = await _headers();
-    final uri = Uri.parse('$_baseUrl$endpoint').replace(
-      queryParameters: query == null || query.isEmpty ? null : query,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl$endpoint',
+    ).replace(queryParameters: query == null || query.isEmpty ? null : query);
     return _send(() => http.get(uri, headers: headers));
   }
 
@@ -196,8 +196,7 @@ class ApiService {
       if (encoded != null && encoded.isNotEmpty) {
         try {
           return _safeFileName(Uri.decodeComponent(encoded));
-        } catch (_) {
-        }
+        } catch (_) {}
       }
     }
 

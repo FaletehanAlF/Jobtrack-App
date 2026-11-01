@@ -78,10 +78,7 @@ class RecruiterDashboardStats {
         json['submitted'],
         'stats.submitted',
       ),
-      rejected: RecruiterJobStats._parseInt(
-        json['rejected'],
-        'stats.rejected',
-      ),
+      rejected: RecruiterJobStats._parseInt(json['rejected'], 'stats.rejected'),
     );
   }
 }

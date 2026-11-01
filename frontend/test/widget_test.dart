@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,6 +30,29 @@ void main() {
     expect(find.text('JobTrack'), findsOneWidget);
     expect(find.text('Mulai Sekarang'), findsOneWidget);
     expect(find.text('Masuk'), findsOneWidget);
+  });
+
+  testWidgets('Seluruh teks aplikasi memakai font Montserrat', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const JobTrackApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final theme = Theme.of(tester.element(find.text('Mulai Sekarang')));
+
+    expect(
+      theme.textTheme.bodyMedium?.fontFamily ?? '',
+      startsWith('Montserrat'),
+    );
+    expect(
+      theme.textTheme.titleLarge?.fontFamily ?? '',
+      startsWith('Montserrat'),
+    );
+    expect(
+      theme.textTheme.labelLarge?.fontFamily ?? '',
+      startsWith('Montserrat'),
+    );
   });
 
   testWidgets('Tombol Mulai Sekarang membuka halaman register', (

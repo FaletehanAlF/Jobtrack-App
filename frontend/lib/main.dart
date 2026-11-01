@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'models/user_model.dart';
 import 'pages/home_page.dart';
@@ -17,14 +18,19 @@ class JobTrackApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseTheme = ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: JobTrackColors.background,
+      colorScheme: ColorScheme.fromSeed(seedColor: JobTrackColors.blue),
+    );
+
     return MaterialApp(
       title: 'JobTrack',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: JobTrackColors.background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: JobTrackColors.blue,
+      theme: baseTheme.copyWith(
+        textTheme: GoogleFonts.montserratTextTheme(baseTheme.textTheme),
+        primaryTextTheme: GoogleFonts.montserratTextTheme(
+          baseTheme.primaryTextTheme,
         ),
       ),
       home: const _SessionGate(),
@@ -72,9 +78,9 @@ class _SessionGateState extends State<_SessionGate> {
     final attempt = ++_attempt;
 
     try {
-      final user = await _authService
-          .getCurrentUser()
-          .timeout(const Duration(seconds: 10));
+      final user = await _authService.getCurrentUser().timeout(
+        const Duration(seconds: 10),
+      );
 
       if (!mounted || attempt != _attempt) return;
 
@@ -183,7 +189,7 @@ class _SessionGateState extends State<_SessionGate> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        textStyle: const TextStyle(
+                        textStyle: GoogleFonts.montserrat(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),

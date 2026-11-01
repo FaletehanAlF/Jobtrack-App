@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/jobtrack_theme.dart';
 
@@ -18,8 +19,8 @@ class AuthPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: JobTrackColors.authGradient),
+      body: ColoredBox(
+        color: JobTrackColors.background,
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -409,7 +410,7 @@ class PrimaryButton extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(JobTrackRadii.button),
             ),
-            textStyle: const TextStyle(
+            textStyle: GoogleFonts.montserrat(
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.1,
@@ -496,7 +497,7 @@ class SocialButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(JobTrackRadii.social),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.montserrat(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
           ),
@@ -571,7 +572,7 @@ class AuthLinkRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             minimumSize: const Size(0, 36),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            textStyle: const TextStyle(
+            textStyle: GoogleFonts.montserrat(
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
             ),

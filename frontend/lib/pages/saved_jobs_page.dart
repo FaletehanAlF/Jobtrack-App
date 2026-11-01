@@ -22,7 +22,11 @@ class _SavedPlaceholder extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.bookmark_border, size: 48, color: JobTrackColors.navyMuted),
+            Icon(
+              Icons.bookmark_border,
+              size: 48,
+              color: JobTrackColors.navyMuted,
+            ),
             SizedBox(height: 16),
             Text(
               'Tersimpan',

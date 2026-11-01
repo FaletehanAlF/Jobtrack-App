@@ -70,7 +70,10 @@ class AuthService {
       return data;
     }
 
-    throw ApiException(0, 'Respons server tidak sesuai format yang diharapkan.');
+    throw ApiException(
+      0,
+      'Respons server tidak sesuai format yang diharapkan.',
+    );
   }
 
   UserModel _readUser(dynamic data) {

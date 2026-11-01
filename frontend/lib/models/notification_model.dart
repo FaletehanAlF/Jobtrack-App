@@ -67,9 +67,11 @@ class NotificationModel {
     );
   }
 
-  bool get isApplicationRejected => type == NotificationType.applicationRejected;
+  bool get isApplicationRejected =>
+      type == NotificationType.applicationRejected;
 
-  bool get isApplicationReceived => type == NotificationType.applicationReceived;
+  bool get isApplicationReceived =>
+      type == NotificationType.applicationReceived;
 
   bool get isKnownType => isApplicationRejected || isApplicationReceived;
 

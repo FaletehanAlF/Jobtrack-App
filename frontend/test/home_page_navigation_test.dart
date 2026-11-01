@@ -81,6 +81,40 @@ void main() {
     expect(service.calls, 1);
   });
 
+  testWidgets('Logout dari menu akun AppBar meminta konfirmasi', (
+    WidgetTester tester,
+  ) async {
+    final authService = _FakeAuthService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          user: _user,
+          authService: authService,
+          jobService: _EmptyJobService(),
+          applicationService: _EmptyApplicationService(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('home-account-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Keluar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keluar dari akun?'), findsOneWidget);
+    expect(authService.logoutCalls, 0);
+
+    await tester.tap(find.byKey(const Key('confirm-logout-button')));
+    await tester.pumpAndSettle();
+
+    expect(authService.logoutCalls, 1);
+    expect(find.byType(LoginPage), findsOneWidget);
+    expect(find.byType(HomePage), findsNothing);
+  });
+
   testWidgets('Logout menghapus sesi dan membuka halaman Login', (
     WidgetTester tester,
   ) async {
@@ -104,6 +138,9 @@ void main() {
 
     await tester.ensureVisible(find.text('Keluar'));
     await tester.tap(find.text('Keluar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('confirm-logout-button')));
     await tester.pumpAndSettle();
 
     expect(authService.logoutCalls, 1);
@@ -134,6 +171,9 @@ void main() {
 
     await tester.ensureVisible(find.text('Keluar'));
     await tester.tap(find.text('Keluar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('confirm-logout-button')));
     await tester.pumpAndSettle();
 
     expect(navigatorKey.currentState!.canPop(), isFalse);

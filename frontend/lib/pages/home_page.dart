@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'applications_page.dart';
+import 'job_form_page.dart';
 import 'login_page.dart';
 import 'home_tab.dart';
 import 'jobs_page.dart';
@@ -55,6 +56,7 @@ class _HomePageState extends State<HomePage> {
 
   UserModel? _user;
   bool _loadingUser = true;
+  bool _loggingOut = false;
   int _currentIndex = 0;
 
   List<JobModel> _jobs = const [];
@@ -628,6 +630,75 @@ class _HomePageState extends State<HomePage> {
         .push(MaterialPageRoute(builder: (_) => JobDetailPage(job: job)));
   }
 
+  Future<void> _openJobForm({JobModel? job}) async {
+    final saved = await Navigator.of(context).push<JobModel>(
+      MaterialPageRoute(
+        builder: (_) => JobFormPage(job: job, jobService: widget.jobService),
+      ),
+    );
+
+    if (!mounted || saved == null) return;
+
+    await _refreshDashboard();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          job == null
+              ? 'Lowongan "${saved.title}" berhasil dibuat.'
+              : 'Lowongan "${saved.title}" berhasil diperbarui.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteJob(JobModel job) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hapus lowongan?'),
+        content: Text(
+          'Lowongan "${job.title}" beserta lamaran yang masuk akan dihapus '
+          'permanen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            key: const Key('confirm-delete-job-button'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: JobTrackColors.danger),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await (widget.jobService ?? JobService()).deleteJob(job.id);
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is ApiException ? error.message : error.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal menghapus lowongan: $message')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    await _refreshDashboard();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Lowongan "${job.title}" berhasil dihapus.')),
+    );
+  }
+
   Future<void> _openApplication(ApplicationModel application) async {
     JobModel? matchingJob;
 
@@ -665,8 +736,51 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _confirmLogout() async {
+    if (_loggingOut) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Keluar dari akun?'),
+        content: const Text(
+          'Kamu perlu masuk kembali untuk mengakses JobTrack.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            key: const Key('confirm-logout-button'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: JobTrackColors.danger),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await _logout();
+  }
+
   Future<void> _logout() async {
-    await _authService.logout();
+    if (_loggingOut) return;
+
+    setState(() => _loggingOut = true);
+
+    try {
+      await _authService.logout();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loggingOut = false);
+      final message = error is ApiException ? error.message : error.toString();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Gagal keluar: $message')));
+      return;
+    }
 
     if (!mounted) return;
 
@@ -674,6 +788,57 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
       (route) => false,
+    );
+  }
+
+  Widget _accountMenu() {
+    return PopupMenuButton<String>(
+      key: const Key('home-account-menu'),
+      tooltip: 'Menu akun',
+      onSelected: (value) {
+        if (value == 'logout') _confirmLogout();
+      },
+      icon: const Icon(Icons.account_circle_outlined),
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _user?.username ?? 'Pengguna',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: JobTrackColors.navy,
+                ),
+              ),
+              if (_user?.email.isNotEmpty ?? false)
+                Text(
+                  _user!.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: JobTrackColors.navyMuted,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.logout, size: 20, color: JobTrackColors.navy),
+              SizedBox(width: 10),
+              Text('Keluar', style: TextStyle(color: JobTrackColors.navy)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -842,7 +1007,11 @@ class _HomePageState extends State<HomePage> {
               jobs: _jobs,
               loading: _loadingJobs,
               error: _jobsError,
-              onRefresh: _loadJobs,
+              onRefresh: _refreshDashboard,
+              currentUserId: _user?.id,
+              onCreateJob: () => _openJobForm(),
+              onEditJob: (job) => _openJobForm(job: job),
+              onDeleteJob: _deleteJob,
             ),
             RecruiterApplicantsPage(
               applicants: _recruiterApplicants,
@@ -862,7 +1031,7 @@ class _HomePageState extends State<HomePage> {
               onLoadMore: _loadMoreApplicants,
               loadingMore: _loadingMoreApplicants,
             ),
-            ProfilePage(user: _user, onLogout: _logout),
+            ProfilePage(user: _user, onLogout: _confirmLogout),
             _notificationsView(),
           ]
         : <Widget>[
@@ -897,7 +1066,7 @@ class _HomePageState extends State<HomePage> {
               applicationService: widget.applicationService,
             ),
             const SavedJobsPage(),
-            ProfilePage(user: _user, onLogout: _logout),
+            ProfilePage(user: _user, onLogout: _confirmLogout),
             _notificationsView(),
           ];
 
@@ -917,7 +1086,7 @@ class _HomePageState extends State<HomePage> {
         final isExtended = constraints.maxWidth >= 1200;
         final content = IndexedStack(index: currentIndex, children: pages);
 
-        return Scaffold(
+        final scaffold = Scaffold(
           backgroundColor: JobTrackColors.background,
           appBar: AppBar(
             backgroundColor: JobTrackColors.surface,
@@ -931,7 +1100,7 @@ class _HomePageState extends State<HomePage> {
               bottom: BorderSide(color: JobTrackColors.border),
             ),
             title: currentIndex == 0
-                ? const JobTrackBrand(logoSize: 30)
+                ? (isWide ? null : const JobTrackBrand(logoSize: 30))
                 : Text(
                     titles[currentIndex],
                     style: const TextStyle(
@@ -941,65 +1110,11 @@ class _HomePageState extends State<HomePage> {
                   ),
             actions: [
               if (currentIndex != _notificationsTabIndex) _notificationBell(),
-              const SizedBox(width: 4),
+              _accountMenu(),
+              const SizedBox(width: 8),
             ],
           ),
-          body: isWide
-              ? Row(
-                  children: [
-                    NavigationRail(
-                      extended: isExtended,
-                      labelType: isExtended
-                          ? NavigationRailLabelType.none
-                          : NavigationRailLabelType.all,
-                      minWidth: 76,
-                      minExtendedWidth: 220,
-                      backgroundColor: JobTrackColors.surface,
-                      indicatorColor: JobTrackColors.blueSoft,
-                      selectedIconTheme: const IconThemeData(
-                        color: JobTrackColors.blue,
-                      ),
-                      unselectedIconTheme: const IconThemeData(
-                        color: JobTrackColors.navyMuted,
-                      ),
-                      selectedLabelTextStyle: const TextStyle(
-                        color: JobTrackColors.blue,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      unselectedLabelTextStyle: const TextStyle(
-                        color: JobTrackColors.navyMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      leading: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isExtended ? 16 : 0,
-                          vertical: 8,
-                        ),
-                        child: isExtended
-                            ? const Align(
-                                alignment: Alignment.centerLeft,
-                                child: JobTrackBrand(logoSize: 34),
-                              )
-                            : const Center(
-                                child: JobTrackBrand(
-                                  logoSize: 40,
-                                  showText: false,
-                                ),
-                              ),
-                      ),
-                      selectedIndex: currentIndex,
-                      onDestinationSelected: _selectTab,
-                      destinations: railDestinations,
-                    ),
-                    const VerticalDivider(
-                      width: 1,
-                      thickness: 1,
-                      color: JobTrackColors.border,
-                    ),
-                    Expanded(child: content),
-                  ],
-                )
-              : content,
+          body: content,
           bottomNavigationBar: isWide
               ? null
               : BottomNavigationBar(
@@ -1012,6 +1127,77 @@ class _HomePageState extends State<HomePage> {
                   showUnselectedLabels: true,
                   items: bottomItems,
                 ),
+        );
+
+        return ColoredBox(
+          color: JobTrackColors.surface,
+          child: SafeArea(
+            top: isWide,
+            left: isWide,
+            right: isWide,
+            bottom: false,
+            child: Row(
+              children: [
+                if (isWide) ...[
+                  NavigationRail(
+                    extended: isExtended,
+                    labelType: isExtended
+                        ? NavigationRailLabelType.none
+                        : NavigationRailLabelType.all,
+                    minWidth: 76,
+                    minExtendedWidth: 220,
+                    backgroundColor: JobTrackColors.surface,
+                    indicatorColor: JobTrackColors.blueSoft,
+                    selectedIconTheme: const IconThemeData(
+                      color: JobTrackColors.blue,
+                    ),
+                    unselectedIconTheme: const IconThemeData(
+                      color: JobTrackColors.navyMuted,
+                    ),
+                    selectedLabelTextStyle: const TextStyle(
+                      color: JobTrackColors.blue,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    unselectedLabelTextStyle: const TextStyle(
+                      color: JobTrackColors.navyMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    leading: SizedBox(
+                      height: 40,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isExtended ? 16 : 0,
+                        ),
+                        child: isExtended
+                            ? const Align(
+                                alignment: Alignment.centerLeft,
+                                child: JobTrackBrand(logoSize: 32),
+                              )
+                            : const Center(
+                                child: JobTrackBrand(
+                                  logoSize: 36,
+                                  showText: false,
+                                ),
+                              ),
+                      ),
+                    ),
+                    selectedIndex: currentIndex,
+                    onDestinationSelected: _selectTab,
+                    destinations: railDestinations,
+                  ),
+                  const VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: JobTrackColors.border,
+                  ),
+                ],
+                Expanded(
+                  key: const ValueKey('home-main-area'),
+                  child: scaffold,
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

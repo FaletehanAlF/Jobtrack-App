@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/application_model.dart';
 import '../models/recruiter_model.dart';
@@ -132,27 +133,44 @@ class RecruiterApplicantsPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      ExcelExportButton(
-                        buttonKey: const Key('recruiter-export-button'),
-                        enabled:
-                            !loading && error == null && applicants.isNotEmpty,
-                        onExport: () =>
-                            (applicationService ?? ApplicationService())
-                                .exportRecruiterApplicants(),
-                        downloadHandler: downloadHandler,
-                        successMessage: 'Laporan pelamar berhasil diunduh.',
-                        disabledMessage: loading
-                            ? 'Tunggu data pelamar selesai dimuat.'
-                            : 'Belum ada pelamar untuk diekspor.',
-                      ),
-                      const SizedBox(height: 12),
-                      _Filters(
-                        jobs: jobs,
-                        selectedJobId: selectedJobId,
-                        onJobFilterChanged: onJobFilterChanged,
-                        selectedStatus: selectedStatus,
-                        onStatusFilterChanged: onStatusFilterChanged,
-                        enabled: !loading,
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final compact = constraints.maxWidth < 520;
+
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: _Filters(
+                                  jobs: jobs,
+                                  selectedJobId: selectedJobId,
+                                  onJobFilterChanged: onJobFilterChanged,
+                                  selectedStatus: selectedStatus,
+                                  onStatusFilterChanged: onStatusFilterChanged,
+                                  enabled: !loading,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ExcelExportButton(
+                                buttonKey: const Key('recruiter-export-button'),
+                                compact: compact,
+                                enabled:
+                                    !loading &&
+                                    error == null &&
+                                    applicants.isNotEmpty,
+                                onExport: () =>
+                                    (applicationService ?? ApplicationService())
+                                        .exportRecruiterApplicants(),
+                                downloadHandler: downloadHandler,
+                                successMessage:
+                                    'Laporan pelamar berhasil diunduh.',
+                                disabledMessage: loading
+                                    ? 'Tunggu data pelamar selesai dimuat.'
+                                    : 'Belum ada pelamar untuk diekspor.',
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       if (!loading &&
                           error == null &&
@@ -223,10 +241,7 @@ class RecruiterApplicantsPage extends StatelessWidget {
                                           strokeWidth: 2,
                                         ),
                                       )
-                                    : const Icon(
-                                        Icons.expand_more,
-                                        size: 18,
-                                      ),
+                                    : const Icon(Icons.expand_more, size: 18),
                                 label: Text(
                                   loadingMore
                                       ? 'Memuat...'
@@ -295,58 +310,56 @@ class _Filters extends StatelessWidget {
     final jobFilterEnabled = enabled && onJobFilterChanged != null;
     final statusFilterEnabled = enabled && onStatusFilterChanged != null;
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    final jobFilter = jobs.isNotEmpty && onJobFilterChanged != null
+        ? DropdownButtonFormField<int?>(
+            key: const Key('recruiter-filter-job'),
+            initialValue: selectedJobId,
+            isExpanded: true,
+            decoration: _filterDecoration('Lowongan'),
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Semua lowongan', overflow: TextOverflow.ellipsis),
+              ),
+              for (final job in jobs)
+                DropdownMenuItem<int?>(
+                  value: job.id,
+                  child: Text(job.title, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: jobFilterEnabled ? onJobFilterChanged : null,
+          )
+        : null;
+
+    final statusFilter = onStatusFilterChanged != null
+        ? DropdownButtonFormField<String?>(
+            key: const Key('recruiter-filter-status'),
+            initialValue: selectedStatus,
+            isExpanded: true,
+            decoration: _filterDecoration('Status'),
+            items: const [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Semua status', overflow: TextOverflow.ellipsis),
+              ),
+              DropdownMenuItem<String?>(
+                value: ApplicationStatus.submitted,
+                child: Text('Dikirim'),
+              ),
+              DropdownMenuItem<String?>(
+                value: ApplicationStatus.rejected,
+                child: Text('Ditolak'),
+              ),
+            ],
+            onChanged: statusFilterEnabled ? onStatusFilterChanged : null,
+          )
+        : null;
+
+    return Row(
       children: [
-        if (jobs.isNotEmpty && onJobFilterChanged != null)
-          SizedBox(
-            width: 260,
-            child: DropdownButtonFormField<int?>(
-              key: const Key('recruiter-filter-job'),
-              initialValue: selectedJobId,
-              isExpanded: true,
-              decoration: _filterDecoration('Lowongan'),
-              items: [
-                const DropdownMenuItem<int?>(
-                  value: null,
-                  child: Text('Semua lowongan'),
-                ),
-                for (final job in jobs)
-                  DropdownMenuItem<int?>(
-                    value: job.id,
-                    child: Text(job.title, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: jobFilterEnabled ? onJobFilterChanged : null,
-            ),
-          ),
-        if (onStatusFilterChanged != null)
-          SizedBox(
-            width: 200,
-            child: DropdownButtonFormField<String?>(
-              key: const Key('recruiter-filter-status'),
-              initialValue: selectedStatus,
-              isExpanded: true,
-              decoration: _filterDecoration('Status'),
-              items: const [
-                DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Semua status'),
-                ),
-                DropdownMenuItem<String?>(
-                  value: ApplicationStatus.submitted,
-                  child: Text('Dikirim'),
-                ),
-                DropdownMenuItem<String?>(
-                  value: ApplicationStatus.rejected,
-                  child: Text('Ditolak'),
-                ),
-              ],
-              onChanged: statusFilterEnabled ? onStatusFilterChanged : null,
-            ),
-          ),
+        if (jobFilter != null) Expanded(child: jobFilter),
+        if (jobFilter != null && statusFilter != null) const SizedBox(width: 8),
+        if (statusFilter != null) Expanded(child: statusFilter),
       ],
     );
   }
@@ -477,10 +490,8 @@ class _ApplicantCard extends StatelessWidget {
                   if (!applicant.isRejected)
                     TextButton.icon(
                       key: Key('recruiter-${applicant.id}-reject'),
-                      onPressed: () => updateStatus(
-                        applicant,
-                        ApplicationStatus.rejected,
-                      ),
+                      onPressed: () =>
+                          updateStatus(applicant, ApplicationStatus.rejected),
                       icon: const Icon(Icons.cancel_outlined, size: 16),
                       label: const Text('Tolak'),
                       style: TextButton.styleFrom(
@@ -491,7 +502,7 @@ class _ApplicantCard extends StatelessWidget {
                         ),
                         minimumSize: const Size(0, 34),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(
+                        textStyle: GoogleFonts.montserrat(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -500,10 +511,8 @@ class _ApplicantCard extends StatelessWidget {
                   if (!applicant.isSubmitted)
                     TextButton.icon(
                       key: Key('recruiter-${applicant.id}-restore'),
-                      onPressed: () => updateStatus(
-                        applicant,
-                        ApplicationStatus.submitted,
-                      ),
+                      onPressed: () =>
+                          updateStatus(applicant, ApplicationStatus.submitted),
                       icon: const Icon(Icons.undo_rounded, size: 16),
                       label: const Text('Kembalikan ke Dikirim'),
                       style: TextButton.styleFrom(
@@ -514,7 +523,7 @@ class _ApplicantCard extends StatelessWidget {
                         ),
                         minimumSize: const Size(0, 34),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(
+                        textStyle: GoogleFonts.montserrat(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -702,9 +711,7 @@ class _RecruiterEmpty extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            hasFilters
-                ? 'Coba ubah filter lowongan atau status.'
-                : 'Pelamar untuk lowongan yang kamu miliki akan muncul di sini.',
+            hasFilters ? 'Coba ubah filter lowongan atau status.' : 'Pelamar untuk lowongan yang kamu miliki akan muncul di sini.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 13.5,
