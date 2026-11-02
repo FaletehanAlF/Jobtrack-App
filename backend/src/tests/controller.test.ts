@@ -11,9 +11,6 @@ import {
 } from "../controllers/application.controller.js";
 import { callController, makeReq } from "./helpers.js";
 
-// Tes perilaku controller yang tidak menyentuh database, sehingga bisa dijalankan
-// tanpa migration. Skema body tidak valid maupun tanpa req.user tertolak lebih
-// dulu sebelum query ke database.
 
 type QueryResult = [unknown[], unknown];
 

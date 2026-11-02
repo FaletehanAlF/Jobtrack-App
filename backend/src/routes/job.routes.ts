@@ -11,11 +11,9 @@ import {
 
 export const jobRouter = Router();
 
-// Semua endpoint Jobs wajib login, termasuk kedua endpoint GET.
 jobRouter.get("/", authenticate, listJobs);
 jobRouter.get("/:id", authenticate, getJob);
 
-// Membuat, mengubah, dan menghapus hanya untuk recruiter.
 jobRouter.post("/", authenticate, authorizeRoles("recruiter"), createJob);
 jobRouter.put("/:id", authenticate, authorizeRoles("recruiter"), updateJob);
 jobRouter.delete("/:id", authenticate, authorizeRoles("recruiter"), deleteJob);

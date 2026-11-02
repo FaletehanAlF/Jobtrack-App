@@ -14,8 +14,6 @@ import {
 } from "../services/notification.service.js";
 import { callController, makeReq } from "./helpers.js";
 
-// Tes notifikasi tanpa database: query di-stub dan direkam, sehingga yang
-// diuji adalah aturan kepemilikan, validasi, dan bentuk query.
 
 type QueryResult = [unknown, unknown];
 
@@ -91,7 +89,6 @@ describe("GET /api/notifications", () => {
     });
 
     try {
-      // Query berisi recipient_id milik orang lain harus diabaikan.
       const capture = await callController(
         listNotifications,
         makeNotificationReq(
@@ -253,7 +250,6 @@ describe("PATCH /api/notifications/:id/read", () => {
   it("notifikasi milik pengguna lain dijawab 404, bukan 403", async () => {
     const { restore } = stubDbQuery(async (sql) => {
       if (/^\s*UPDATE/i.test(sql)) return [{ affectedRows: 0 }, []];
-      // SELECT ulang dengan recipient_id pemilik lain tidak menemukan apa pun.
       return [[], []];
     });
 
@@ -371,7 +367,6 @@ describe("Pembuatan notifikasi", () => {
         /INSERT IGNORE INTO notifications/.test(query.sql),
       );
       assert.ok(insert);
-      // Penerima berasal dari jobs.recruiter_id, bukan dari parameter klien.
       assert.equal(insert.params[0], 42);
       assert.equal(insert.params[1], "application_received");
       assert.match(String(insert.params[2]), /budi/);

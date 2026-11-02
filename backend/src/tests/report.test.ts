@@ -28,7 +28,6 @@ describe("laporan Excel jobseeker", () => {
       },
     ]);
 
-    // File .xlsx adalah arsip ZIP, sehingga selalu diawali signature "PK".
     assert.equal(buffer.subarray(0, 2).toString("utf8"), "PK");
 
     const rows = await readSheet(buffer);

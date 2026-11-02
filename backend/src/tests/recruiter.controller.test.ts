@@ -8,15 +8,7 @@ import {
 } from "../controllers/recruiter.controller.js";
 import { callController, makeReq } from "./helpers.js";
 
-// Tes perilaku endpoint recruiter tanpa menyentuh database: query di-stub,
-// sehingga yang diuji adalah aturan otorisasi dan bentuk query yang dipakai.
-//
-// Kepemilikan data diuji lewat parameter query yang benar-benar dikirim ke
-// database: recruiter_id HARUS berasal dari token (req.user.id), dan setiap
-// query wajib membawa syarat kepemilikan itu.
 
-// mysql2 mengembalikan [rows, fields] untuk SELECT dan [ResultSetHeader, fields]
-// untuk UPDATE. Stub di bawah menampung keduanya.
 type QueryResult = [unknown, unknown];
 
 interface CapturedQuery {
@@ -29,25 +21,39 @@ function stubDbQuery(
 ): { captured: CapturedQuery[]; restore: () => void } {
   const pool = db as unknown as {
     query: (sql: string, params?: unknown[]) => Promise<QueryResult>;
+    getConnection: () => Promise<unknown>;
   };
   const originalQuery = pool.query;
+  const originalGetConnection = pool.getConnection;
   const captured: CapturedQuery[] = [];
 
-  pool.query = (sql: string, params?: unknown[]) => {
+  // Query dari transaksi (connection.query) dan pool (db.query) dicatat lewat
+  // jalur yang sama supaya tes tetap berjalan tanpa database sungguhan.
+  const queryFn = (sql: string, params?: unknown[]) => {
     captured.push({ sql, params: params ?? [] });
     return handler(sql, params);
   };
+
+  pool.query = queryFn;
+
+  (pool as unknown as { getConnection: () => Promise<unknown> }).getConnection =
+    async () => ({
+      query: queryFn,
+      beginTransaction: async () => undefined,
+      commit: async () => undefined,
+      rollback: async () => undefined,
+      release: () => undefined,
+    });
 
   return {
     captured,
     restore: () => {
       pool.query = originalQuery;
+      pool.getConnection = originalGetConnection;
     },
   };
 }
 
-// req.query selalu berupa string di Express. Helper makeReq hanya mengisi
-// user dan body, jadi query ditambahkan lewat cast.
 function makeRecruiterReq(
   user: { id: number; role: string } | undefined,
   options: { body?: unknown; query?: Record<string, string>; params?: Record<string, string> } = {},
@@ -100,7 +106,6 @@ describe("GET /api/recruiter/dashboard", () => {
     ]);
 
     try {
-      // Query berisi recruiter_id milik orang lain: harus diabaikan.
       const capture = await callController(
         getRecruiterDashboard,
         makeRecruiterReq(
@@ -148,7 +153,6 @@ describe("GET /api/recruiter/dashboard", () => {
         submitted: 3,
         rejected: 1,
       });
-      // COUNT dari mysql2 bisa berupa string; respons harus angka.
       assert.equal(body.jobs[0].applicant_count, 4);
       assert.equal(body.jobs[0].submitted_count, 3);
     } finally {
@@ -243,7 +247,6 @@ describe("GET /api/recruiter/applicants", () => {
       assert.ok(listQuery);
       assert.match(listQuery.sql, /a\.job_id = \?/);
       assert.match(listQuery.sql, /a\.status = \?/);
-      // Urutan parameter: recruiter_id, job_id, status, limit, offset.
       assert.deepEqual(listQuery.params, [42, 3, "submitted", 50, 0]);
     } finally {
       restore();
@@ -313,7 +316,6 @@ describe("GET /api/recruiter/applicants", () => {
       assert.equal(body.total, 37);
       assert.equal(body.limit, 10);
       assert.equal(body.offset, 20);
-      // Data pribadi berlebih tidak ikut dikirim.
       assert.deepEqual(body.applicants[0].applicant, { username: "budi" });
     } finally {
       restore();
@@ -350,7 +352,6 @@ describe("PATCH /api/recruiter/applicants/:id/status", () => {
         assert.equal(capture.status, 400, `status "${status}" seharusnya ditolak`);
       }
 
-      // Tidak ada UPDATE yang dijalankan untuk input tidak valid.
       assert.equal(captured.length, 0);
     } finally {
       restore();
@@ -450,7 +451,6 @@ describe("PATCH /api/recruiter/applicants/:id/status", () => {
 
       const updateQuery = captured.find((query) => /^\s*UPDATE/i.test(query.sql));
       assert.ok(updateQuery, "harus ada UPDATE");
-      // Syarat kepemilikan ikut di dalam UPDATE, bukan hanya di SELECT.
       assert.match(updateQuery.sql, /JOIN jobs j/);
       assert.match(updateQuery.sql, /j\.recruiter_id = \?/);
       assert.deepEqual(updateQuery.params, ["rejected", 9, 42]);
@@ -460,8 +460,6 @@ describe("PATCH /api/recruiter/applicants/:id/status", () => {
   });
 
   it("lamaran milik recruiter lain dijawab 404, bukan 403", async () => {
-    // Recruiter 42 mencoba mengubah lamaran milik lowongan recruiter 99:
-    // UPDATE tidak mengenai baris mana pun dan SELECT ulang kosong.
     const { restore } = stubDbQuery(async (sql) => {
       if (/^\s*UPDATE/i.test(sql)) return [{ affectedRows: 0 }, []];
       return [[], []];

@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import { db } from "../config/database.js";
 
-// Helper pengujian: meniru cukup bagian dari Request/Response Express untuk
-// menjalankan middleware dan controller tanpa menghidupkan server.
 
 export interface HandlerCapture {
   status?: number;
@@ -11,7 +10,6 @@ export interface HandlerCapture {
   nextError?: unknown;
 }
 
-// req.user dibuat sebagai { id, role } sama seperti isi token JWT.
 export function makeReq(
   user: { id: number; role: string } | undefined,
   body?: unknown,
@@ -53,7 +51,6 @@ function makeNext(capture: HandlerCapture): NextFunction {
   }) as unknown as NextFunction;
 }
 
-// Untuk middleware sinkron seperti authorizeRoles.
 export function callMiddleware(
   handler: (req: Request, res: Response, next: NextFunction) => void,
   req: Request,
@@ -63,7 +60,6 @@ export function callMiddleware(
   return capture;
 }
 
-// Untuk controller async yang memakai await db.query(...).
 export async function callController(
   handler: (req: Request, res: Response, next: NextFunction) => Promise<void>,
   req: Request,
@@ -76,4 +72,40 @@ export async function callController(
       reject,
     );
   });
+}
+
+export interface PoolQueryStub {
+  /** Daftar query yang tertangkap: sql dan params. */
+  calls: Array<{ sql: string; params: unknown[] | undefined }>;
+  restore: () => void;
+}
+
+/**
+ * Mengganti pool.query (properti db.query yang dipakai controller) dengan fungsi
+ * jawab SQL, lalu mengembalikan fungsi restore. Semua query yang dipanggil saat
+ * stub aktif terekam di `calls`.
+ */
+export function stubPoolQuery(
+  respond: (
+    sql: string,
+    params: unknown[] | undefined,
+  ) => unknown,
+): PoolQueryStub {
+  const pool = db as unknown as {
+    query: (sql: string, params?: unknown[]) => Promise<unknown>;
+  };
+  const originalQuery = pool.query;
+  const calls: Array<{ sql: string; params: unknown[] | undefined }> = [];
+
+  pool.query = (sql: string, params?: unknown[]) => {
+    calls.push({ sql, params });
+    return Promise.resolve(respond(sql, params));
+  };
+
+  return {
+    calls,
+    restore: () => {
+      pool.query = originalQuery;
+    },
+  };
 }

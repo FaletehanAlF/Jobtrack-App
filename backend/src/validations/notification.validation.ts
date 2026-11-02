@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-// Validasi query daftar notifikasi.
-//
-// Pagination dipakai agar daftar tidak pernah memuat seluruh riwayat
-// sekaligus. Batas atas 100 mencegah permintaan besar yang tidak perlu.
 export const listNotificationsQuerySchema = z.object({
   limit: z.preprocess(
     (value) =>
@@ -17,7 +13,6 @@ export const listNotificationsQuerySchema = z.object({
   ),
 });
 
-// Parameter :id dari URL selalu berupa string.
 export const notificationIdSchema = z.coerce.number().int().positive();
 
 export type ListNotificationsQuery = z.infer<

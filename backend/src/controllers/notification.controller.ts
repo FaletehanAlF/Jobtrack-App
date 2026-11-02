@@ -6,8 +6,6 @@ import {
   notificationIdSchema,
 } from "../validations/notification.validation.js";
 
-// Bentuk baris tabel notifications. Hanya kolom ini yang pernah diambil;
-// kolom internal tidak dikirim ke klien.
 interface NotificationRow extends RowDataPacket {
   id: number;
   type: string;
@@ -34,8 +32,6 @@ function toCount(value: number | string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-// Mengubah baris menjadi objek respons. Tidak ada data penerima lain di sini:
-// notifikasi hanya berisi ringkasan, jenis, dan referensi entitas.
 function toNotification(row: NotificationRow) {
   return {
     id: row.id,
@@ -49,11 +45,6 @@ function toNotification(row: NotificationRow) {
   };
 }
 
-// GET /api/notifications
-//
-// Daftar notifikasi milik pengguna login. recipient_id SELALU dari token,
-// tidak pernah dari query string, sehingga pengguna tidak dapat membaca
-// notifikasi orang lain dengan menebak id.
 export async function listNotifications(
   req: Request,
   res: Response,
@@ -106,7 +97,6 @@ export async function listNotifications(
   }
 }
 
-// GET /api/notifications/unread-count
 export async function getUnreadNotificationCount(
   req: Request,
   res: Response,
@@ -130,10 +120,6 @@ export async function getUnreadNotificationCount(
   }
 }
 
-// PATCH /api/notifications/read-all
-//
-// Didaftarkan SEBELUM /:id/read di router, supaya "read-all" tidak tertangkap
-// sebagai parameter id.
 export async function markAllNotificationsRead(
   req: Request,
   res: Response,
@@ -145,8 +131,6 @@ export async function markAllNotificationsRead(
   }
 
   try {
-    // read_at hanya diisi bila masih NULL, sehingga waktu baca pertama
-    // tidak tertimpa oleh permintaan berikutnya.
     await db.query(
       `UPDATE notifications SET read_at = NOW()
        WHERE recipient_id = ? AND read_at IS NULL`,
@@ -159,7 +143,6 @@ export async function markAllNotificationsRead(
   }
 }
 
-// PATCH /api/notifications/:id/read
 export async function markNotificationRead(
   req: Request,
   res: Response,
@@ -181,16 +164,12 @@ export async function markNotificationRead(
   const recipientId = req.user.id;
 
   try {
-    // Syarat recipient_id ada di dalam UPDATE: notifikasi milik pengguna lain
-    // tidak bisa ditandai dibaca meskipun id-nya ditebak.
     await db.query(
       `UPDATE notifications SET read_at = NOW()
        WHERE id = ? AND recipient_id = ? AND read_at IS NULL`,
       [notificationId, recipientId],
     );
 
-    // Baca ulang untuk membedakan "tidak ada/bukan milikmu" dari "sudah
-    // dibaca". Keduanya sama-sama 0 baris pada UPDATE.
     const [rows] = await db.query<NotificationRow[]>(
       `SELECT ${NOTIFICATION_COLUMNS} FROM notifications
        WHERE id = ? AND recipient_id = ?
@@ -200,8 +179,6 @@ export async function markNotificationRead(
 
     const row = rows[0];
 
-    // 404 dipakai, bukan 403, agar keberadaan notifikasi orang lain tidak
-    // bisa ditebak dari perbedaan status.
     if (!row) {
       res.status(404).json({ message: "Notifikasi tidak ditemukan" });
       return;

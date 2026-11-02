@@ -34,8 +34,6 @@ describe("createApplicationSchema", () => {
   });
 
   it("tidak memakai applicant_id dari body; kolom asing dibuang tanpa mengubah job_id", () => {
-    // Pemindahan applicant_id masuk melalui token JWT di controller, bukan
-    // body. Schema memastikan nilai yang disusupi di body tidak dipakai.
     const result = createApplicationSchema.parse({
       job_id: 5,
       applicant_id: 999,

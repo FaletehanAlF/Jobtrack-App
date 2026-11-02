@@ -1,14 +1,10 @@
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
 
-// Jenis notifikasi yang dikenal. Harus sama dengan ENUM kolom
-// notifications.type pada migration table-notifications.sql.
 export type NotificationType =
   | "application_received"
   | "application_rejected";
 
-// Klien query. Pool (db) dan PoolConnection sama-sama punya query(), jadi
-// fungsi di bawah bisa dipanggil di dalam maupun di luar transaksi.
 type Queryable = Pool | PoolConnection;
 
 /**
@@ -71,8 +67,6 @@ export async function notifyApplicationReceived(
 
   const job = rows[0] as { recruiter_id?: number; title?: string } | undefined;
 
-  // Lowongan bisa terhapus di antara INSERT lamaran dan pemanggilan ini.
-  // Notifikasi saja yang dilewati; lamaran yang sudah tersimpan tetap sah.
   if (!job || typeof job.recruiter_id !== "number") return;
 
   await createNotification(db, {

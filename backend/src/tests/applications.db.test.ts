@@ -101,14 +101,12 @@ describe("integrasi database job_applications", {
     ? false
     : "Butuh RUN_DB_TESTS=1 — pengujian database tidak dijalankan otomatis.",
 }, () => {
-  // Identitas unik per run; email hasilnya tidak akan sama dengan data lain.
   const runId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const recruiterEmail = `jttestrec_${runId}${TEST_EMAIL_DOMAIN}`;
   const otherRecruiterEmail = `jttestrec2_${runId}${TEST_EMAIL_DOMAIN}`;
   const applicantEmail = `jttestappl_${runId}${TEST_EMAIL_DOMAIN}`;
   const otherEmail = `jttestoth_${runId}${TEST_EMAIL_DOMAIN}`;
 
-  // Alasan bawaan saat suite berjalan tetapi konfigurasi belum lengkap.
   let dbSkipReason = RUN_DB_TESTS
     ? "DB_NAME_TESTS tidak diatur. Nama database test wajib eksplisit; RUN_DB_TESTS saja tidak cukup untuk mengizinkan penulisan."
     : "Butuh RUN_DB_TESTS=1.";
@@ -121,8 +119,6 @@ describe("integrasi database job_applications", {
   let otherApplicantUserId = 0;
   let jobIdA = 0;
   let jobIdB = 0;
-  // Lowongan yang dibuat lalu dihapus oleh suite ini sendiri; id-nya menjadi
-  // skenario "lowongan tidak ditemukan" yang deterministik.
   let removedJobId = 0;
 
   function ensureDb(t: TestContext): boolean {
@@ -133,9 +129,6 @@ describe("integrasi database job_applications", {
   }
 
   before(async () => {
-    // Lapisan tambahan, bukan pengganti skip suite di atas: hook ini tidak
-    // boleh menyiapkan fixture atau menyentuh database kecuali pengujian
-    // tulis sudah diaktifkan secara eksplisit.
     if (!RUN_DB_TESTS) {
       dbSkipReason =
         "Butuh RUN_DB_TESTS=1 — fixture database tidak disiapkan.";
@@ -152,25 +145,18 @@ describe("integrasi database job_applications", {
       return;
     }
 
-    // Database development dari .env tidak boleh dijadikan target tes,
-    // walau disebut secara eksplisit lewat DB_NAME_TESTS.
     if (TEST_DB_NAME === envFileDbName) {
       dbSkipReason =
         "DB_NAME_TESTS sama dengan DB_NAME di .env (database development). Konfigurasi ambigu: nama database test harus berbeda dari database development.";
       return;
     }
 
-    // Preflight: pool terhubung ke schema dari DB_NAME proses. Jika belum
-    // diarahkan ke database test yang diizinkan, berhenti tanpa menyentuh
-    // database sama sekali.
     if (process.env.DB_NAME && process.env.DB_NAME !== TEST_DB_NAME) {
       dbSkipReason = `DB_NAME proses tidak diarahkan ke database test yang diizinkan. Set DB_NAME sama dengan DB_NAME_TESTS (${TEST_DB_NAME}) saat menjalankan tes.`;
       return;
     }
 
     try {
-      // Verifikasi database aktif lewat koneksi yang benar-benar akan dipakai
-      // controller saat menulis data.
       const [rows] = await db.query<RowDataPacket[]>(
         "SELECT DATABASE() AS activeDb",
       );
@@ -181,14 +167,12 @@ describe("integrasi database job_applications", {
         return;
       }
     } catch {
-      // Koneksi gagal: jangan lanjut ke penulisan apa pun.
       dbSkipReason =
         "Koneksi database gagal atau nama database aktif tidak dapat diverifikasi.";
       return;
     }
 
     try {
-      // Cek keberadaan tabel (hanya baca) setelah semua syarat lolos.
       await db.query("SELECT 1 FROM job_applications LIMIT 1");
     } catch {
       dbSkipReason =
@@ -198,8 +182,6 @@ describe("integrasi database job_applications", {
 
     dbReady = true;
 
-    // ---- Fixture (semua query di bawah sudah terverifikasi menulis ke ----
-    // ---- database test yang diizinkan secara eksplisit)              ----
 
     const [recruiterInsert] = await db.query<ResultSetHeader>(
       "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, 'x', 'recruiter')",
@@ -212,8 +194,6 @@ describe("integrasi database job_applications", {
       role: "recruiter",
     });
 
-    // Recruiter kedua sengaja tidak memiliki lowongan. Dipakai untuk
-    // memastikan filter kepemilikan tidak membocorkan pelamar recruiter lain.
     const [otherRecruiterInsert] = await db.query<ResultSetHeader>(
       "INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, 'x', 'recruiter')",
       [`${TEST_USERNAME_PREFIX}REC2_${runId}`, otherRecruiterEmail],
@@ -271,9 +251,6 @@ describe("integrasi database job_applications", {
     );
     jobIdB = jobBInsert.insertId;
 
-    // Skenerio "lowongan tidak ditemukan" dibuat deterministik: lowungan
-    // milik suite ini sendiri dibuat lalu segera dihapus, dengan pencocokan
-    // id + pemilik + judul supaya baris yang dihapus jelas miliknya.
     const [removedJobInsert] = await db.query<ResultSetHeader>(
       "INSERT INTO jobs (recruiter_id, title, description, company, location) VALUES (?, ?, ?, ?, ?)",
       [
@@ -292,8 +269,6 @@ describe("integrasi database job_applications", {
     );
 
     if (removeResult.affectedRows !== 1) {
-      // Skenario 404 tidak valid; berhenti dengan alasan jelas, jangan
-      // melanjutkan pengujian dengan data yang tidak bisa dijamin.
       dbReady = false;
       dbSkipReason =
         "Gagal menyiapkan lowongan untuk skenario tidak ditemukan. Pengujian dilewati.";
@@ -302,15 +277,6 @@ describe("integrasi database job_applications", {
   });
 
   after(async () => {
-    // Pembersihan HANYA menyasar user yang benar-benar dibuat run ini:
-    //   - id persis dari insertId saat INSERT-nya berhasil (baris dengan
-    //     insert gagal tidak pernah tercatat, jadi tidak akan dihapus),
-    //   - email unik per run yang sama dengan yang dipasang saat INSERT
-    //     (kolom email bersifat UNIQUE di schema users),
-    //   - domain email khusus tes,
-    //   - awalan username identitas tes,
-    //   - role yang memang dipasang saat INSERT.
-    // Kepemilikan yang tidak terbukti tidak dipindai maupun dihapus.
     for (const user of testUsers) {
       const [deleteResult] = await db.query<ResultSetHeader>(
         "DELETE FROM users WHERE id = ? AND email = ? AND email LIKE ? AND username LIKE ? AND role = ?",
@@ -330,7 +296,6 @@ describe("integrasi database job_applications", {
       }
     }
 
-    // Tutup pool supaya proses pengujian berhenti bersih.
     await db.end();
   });
 
@@ -350,8 +315,6 @@ describe("integrasi database job_applications", {
   it("menolak job yang tidak ditemukan dengan 404", async (t) => {
     if (!ensureDb(t)) return;
 
-    // id lowongan milik suite ini yang dibuat lalu dihapus di before(); tidak
-    // bergantung pada MAX(id)+1 dan selalu aman terhadap data milik orang lain.
     const capture = await callController(
       createApplication,
       makeReq({ id: applicantUserId, role: "jobseeker" }, { job_id: removedJobId }),
@@ -363,7 +326,6 @@ describe("integrasi database job_applications", {
   it("lamaran pertama dibuat dengan status submitted dan applicant_id dari token, bukan body", async (t) => {
     if (!ensureDb(t)) return;
 
-    // applicant_id dan status yang disusupi di body harus tidak berpengaruh.
     const capture = await callController(
       createApplication,
       makeReq({ id: applicantUserId, role: "jobseeker" }, {
@@ -409,7 +371,6 @@ describe("integrasi database job_applications", {
     const body = capture.body as { errors?: Record<string, string> };
     assert.ok(body.errors?.job_id);
 
-    // Riwayat tidak bertambah: tetap satu baris untuk pasangan ini.
     const [rows] = await db.query<RowDataPacket[]>(
       "SELECT COUNT(*) AS total FROM job_applications WHERE applicant_id = ? AND job_id = ?",
       [applicantUserId, jobIdA],
@@ -420,8 +381,6 @@ describe("integrasi database job_applications", {
   it("request bersamaan tidak menghasilkan lebih dari satu lamaran aktif", async (t) => {
     if (!ensureDb(t)) return;
 
-    // Lima request paralel dengan pasangan pelamar dan lowongan yang sama.
-    // Constraint UNIQUE di database yang menentukan silang atau tidaknya.
     const attempts = await Promise.all(
       Array.from({ length: 5 }, () =>
         callController(
@@ -447,9 +406,6 @@ describe("integrasi database job_applications", {
   it("lamaran ulang setelah status sebelumnya rejected dapat dibuat, riwayat lama tetap ada", async (t) => {
     if (!ensureDb(t)) return;
 
-    // Baris diubah langsung lewat SQL karena endpoint perubahan status
-    // (workflow recruiter) memang belum dibuat pada tahap ini. Menyimulasikan
-    // status 'rejected' yang nantinya akan diatur recruiter.
     await db.query<ResultSetHeader>(
       "UPDATE job_applications SET status = 'rejected' WHERE applicant_id = ? AND job_id = ?",
       [applicantUserId, jobIdA],
@@ -466,8 +422,6 @@ describe("integrasi database job_applications", {
     ).application;
     assert.equal(created.status, "submitted");
 
-    // Riwayat tidak hilang: lamaran yang sudah ditolak masih ada di baris
-    // tersendiri, ditambah lamaran baru di status submitted.
     const [rows] = await db.query<RowDataPacket[]>(
       "SELECT status FROM job_applications WHERE applicant_id = ? AND job_id = ? ORDER BY id",
       [applicantUserId, jobIdA],
@@ -479,7 +433,6 @@ describe("integrasi database job_applications", {
   it("jobseeker hanya melihat lamarannya sendiri, lengkap dengan ringkasan lowongan", async (t) => {
     if (!ensureDb(t)) return;
 
-    // User lain yang belum pernah melamar tidak melihat apa pun.
     const otherList = await callController(
       listApplications,
       makeReq({ id: otherApplicantUserId, role: "jobseeker" }),
@@ -491,7 +444,6 @@ describe("integrasi database job_applications", {
       [],
     );
 
-    // Pemiliknya melihat seluruh lamannya (2 untuk Job A + 1 untuk Job B).
     const ownList = await callController(
       listApplications,
       makeReq({ id: applicantUserId, role: "jobseeker" }),
@@ -512,8 +464,6 @@ describe("integrasi database job_applications", {
     assert.equal(applications.length, 3);
 
     for (const application of applications) {
-      // applicant_id tidak diekspos di respons, ringkasan lowongan selalu ada
-      // karena FK dengan ON DELETE CASCADE menjamin lamaran selalu punya job.
       assert.equal("applicant_id" in application, false);
       assert.equal(
         application.job.title.startsWith("JT Test Lowongan"), true,
@@ -551,8 +501,6 @@ describe("integrasi database job_applications", {
       assert.equal("email" in applicant.applicant, false);
     }
 
-    // Recruiter lain tidak memiliki lowongan, sehingga harus menerima daftar
-    // kosong meskipun ada lamaran milik recruiter pertama di database.
     const otherCapture = await callController(
       listRecruiterApplicants,
       makeReq({ id: otherRecruiterUserId, role: "recruiter" }),
@@ -585,7 +533,7 @@ describe("integrasi database job_applications", {
     assert.ok(ownCapture.buffer);
 
     const rows = await readSheet(ownCapture.buffer);
-    assert.equal(rows.length, 4); // header + 3 lamaran
+    assert.equal(rows.length, 4);
     for (const row of rows.slice(1)) {
       assert.equal(
         String(row[1]).startsWith("JT Test Lowongan"),
@@ -618,7 +566,7 @@ describe("integrasi database job_applications", {
     assert.ok(ownCapture.buffer);
 
     const rows = await readSheet(ownCapture.buffer);
-    assert.equal(rows.length, 4); // header + 3 pelamar
+    assert.equal(rows.length, 4);
     assert.equal(rows[0].includes("Email"), false);
     for (const row of rows.slice(1)) {
       assert.equal(

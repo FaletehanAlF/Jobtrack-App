@@ -10,7 +10,6 @@ const DEFAULT_ROLE = "jobseeker";
 const BCRYPT_ROUNDS = 10;
 const TOKEN_EXPIRES_IN = "7d";
 
-// Tipe baris hasil query. Diperlukan agar TypeScript tahu bentuk data dari mysql2.
 interface UserRow extends RowDataPacket {
   id: number;
   username: string;
@@ -23,15 +22,12 @@ interface UserWithPasswordRow extends UserRow {
   password_hash: string;
 }
 
-// Mengubah error Zod menjadi objek { namaField: pesan } agar frontend bisa
-// menampilkan pesan di bawah field yang salah.
 function getFieldErrors(error: ZodError): Record<string, string> {
   const messages: Record<string, string> = {};
 
   for (const issue of error.issues) {
     const field = issue.path[0];
 
-    // Lewati error yang tidak terikat pada satu field tertentu.
     if (typeof field !== "string" || field in messages) continue;
 
     messages[field] = issue.message;
@@ -58,10 +54,8 @@ export async function register(
   const username = result.data.username;
   const email = result.data.email;
   const password = result.data.password;
-  // confirmPassword hanya untuk validasi, jadi tidak diambil dan tidak disimpan.
 
   try {
-    // Cek email lebih dulu supaya pesan errornya jelas.
     const [existingUsers] = await db.query<RowDataPacket[]>(
       "SELECT id FROM users WHERE email = ? LIMIT 1",
       [email],
@@ -75,7 +69,6 @@ export async function register(
       return;
     }
 
-    // Hash password sebelum disimpan, supaya database tidak berisi password asli.
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const [insertResult] = await db.query<ResultSetHeader>(
@@ -83,7 +76,6 @@ export async function register(
       [username, email, passwordHash, DEFAULT_ROLE],
     );
 
-    // Ambil data yang baru disimpan, tanpa kolom password_hash.
     const [rows] = await db.query<UserRow[]>(
       "SELECT id, username, email, role, created_at FROM users WHERE id = ? LIMIT 1",
       [insertResult.insertId],
@@ -106,8 +98,6 @@ export async function register(
       },
     });
   } catch (error) {
-    // Database juga menolak email duplikat lewat aturan UNIQUE. Ini menangani
-    // kasus dua request mendaftar bersamaan, yang lolos dari pengecekan di atas.
     const databaseError = error as { code?: string };
 
     if (databaseError.code === "ER_DUP_ENTRY") {
@@ -141,15 +131,12 @@ export async function login(
   const password = result.data.password;
 
   try {
-    // password_hash hanya dibaca di sini untuk dibandingkan, tidak dikirim keluar.
     const [rows] = await db.query<UserWithPasswordRow[]>(
       "SELECT id, username, email, password_hash, role, created_at FROM users WHERE email = ? LIMIT 1",
       [email],
     );
     const user = rows[0];
 
-    // Email tidak ada dan password salah memakai pesan yang sama, supaya
-    // tidak membocorkan email mana yang terdaftar.
     const wrongCredentialsMessage = "Email atau password salah";
 
     if (!user) {
@@ -167,7 +154,6 @@ export async function login(
     const jwtSecret = process.env.JWT_SECRET;
 
     if (!jwtSecret) {
-      // Sengaja error, bukan memakai secret bawaan yang bisa ditebak orang lain.
       throw new Error(
         "JWT_SECRET belum diatur. Tambahkan JWT_SECRET di backend/.env sebelum memakai endpoint login.",
       );

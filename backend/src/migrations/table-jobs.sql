@@ -10,7 +10,5 @@ create table jobs(
 
 	index idx_recruiter_id (recruiter_id),
 
-	-- Lowongan ikut terhapus bila akun recruiter pemiliknya dihapus,
-	-- supaya tidak ada lowongan tanpa pemilik yang tidak bisa diubah siapa pun.
 	constraint fk_jobs_recruiter foreign key (recruiter_id) references users(id) on delete cascade
 );

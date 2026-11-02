@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authenticate } from "../config/middleware/auth.middleware.js";
 import { authorizeRoles } from "../config/middleware/authorize.middleware.js";
+import { handleCvUpload } from "../config/middleware/upload.middleware.js";
 import {
   createApplication,
   exportJobseekerApplications,
@@ -11,9 +12,6 @@ import {
 
 export const applicationRouter = Router();
 
-// Endpoint jobseeker: riwayat dan ekspor hanya berisi lamaran milik pemilik
-// token. Endpoint recruiter: daftar dan ekspor pelamar hanya untuk lowongan
-// dengan recruiter_id dari token.
 applicationRouter.get(
   "/export",
   authenticate,
@@ -42,5 +40,6 @@ applicationRouter.post(
   "/",
   authenticate,
   authorizeRoles("jobseeker"),
+  handleCvUpload,
   createApplication,
 );

@@ -1,7 +1,16 @@
+import fs from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import type { ZodError } from "zod";
 import { db } from "../config/database.js";
+import {
+  CLOUDINARY_CV_DELIVERY_TYPE,
+  CLOUDINARY_CV_FOLDER,
+  CLOUDINARY_CV_RESOURCE_TYPE,
+  cloudinaryClient,
+  ensureCloudinaryConfigured,
+} from "../config/cloudinary.js";
 import {
   buildJobseekerApplicationsReport,
   buildRecruiterApplicantsReport,
@@ -10,10 +19,8 @@ import {
 } from "../reports/application-report.js";
 import { createApplicationSchema } from "../validations/application.validation.js";
 import { notifyApplicationReceived } from "../services/notification.service.js";
+import { CV_MAX_SIZE_BYTES } from "../config/middleware/upload.middleware.js";
 
-// Bentuk baris tabel job_applications. Hanya kolom ini yang pernah diambil
-// dari database. Kolom active_slot (kolom hasil turunan migration) sengaja
-// tidak pernah diambil karena hanya kepentingan database, bukan kepentingan API.
 interface ApplicationRow extends RowDataPacket {
   id: number;
   applicant_id: number;
@@ -23,8 +30,6 @@ interface ApplicationRow extends RowDataPacket {
   updated_at: Date | string;
 }
 
-// Bentuk baris lamaran yang sudah digabung dengan lowongannya, untuk daftar
-// riwayat lamaran milik jobseeker.
 interface ApplicationWithJobRow extends RowDataPacket {
   id: number;
   job_id: number;
@@ -36,8 +41,6 @@ interface ApplicationWithJobRow extends RowDataPacket {
   job_location: string;
 }
 
-// Pelamar pada laporan recruiter. Email dan kolom users lain sengaja tidak
-// diambil karena laporan hanya membutuhkan username pelamar.
 interface RecruiterApplicantRow extends RowDataPacket {
   id: number;
   status: string;
@@ -47,6 +50,9 @@ interface RecruiterApplicantRow extends RowDataPacket {
   job_company: string;
   job_location: string;
   applicant_username: string;
+  cv_public_id: string | null;
+  cv_resource_type: string | null;
+  cv_delivery_type: string | null;
 }
 
 const JOBSEEKER_APPLICATIONS_SELECT = `SELECT a.id, a.job_id, a.status,
@@ -58,18 +64,17 @@ JOIN jobs j ON j.id = a.job_id`;
 
 const RECRUITER_APPLICANTS_SELECT = `SELECT a.id, a.status, a.created_at,
        j.id AS job_id, j.title AS job_title, j.company AS job_company,
-       j.location AS job_location, u.username AS applicant_username
+       j.location AS job_location, u.username AS applicant_username,
+       a.cv_public_id, a.cv_resource_type, a.cv_delivery_type
 FROM job_applications a
 JOIN jobs j ON j.id = a.job_id
 JOIN users u ON u.id = a.applicant_id`;
 
-// Kolom hasil SELECT untuk respons POST. Status tidak pernah diambil dari
-// body request; nilainya selalu 'submitted' pada saat pengajuan baru.
 const APPLICATION_COLUMNS =
   "id, applicant_id, job_id, status, created_at, updated_at";
 
-// Mengubah error Zod menjadi { namaField: pesan } agar frontend bisa
-// menampilkan pesan di bawah field yang salah.
+const CV_UPLOAD_TIMEOUT_MS = 30_000;
+
 function getFieldErrors(error: ZodError): Record<string, string> {
   const messages: Record<string, string> = {};
 
@@ -120,39 +125,98 @@ function sendExcelFile(
   res.status(200).send(buffer);
 }
 
-// POST /api/applications
+const PDF_MAGIC = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
+
+type CvResourceType = typeof CLOUDINARY_CV_RESOURCE_TYPE;
+type CvDeliveryType = typeof CLOUDINARY_CV_DELIVERY_TYPE;
+
+function isPdfFile(filePath: string): Promise<boolean> {
+  return (async () => {
+    try {
+      const handle = await fs.open(filePath, "r");
+      try {
+        const buffer = Buffer.alloc(4);
+        await handle.read(buffer, 0, 4, 0);
+        return buffer.equals(PDF_MAGIC);
+      } finally {
+        await handle.close();
+      }
+    } catch {
+      return false;
+    }
+  })();
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("CV_UPLOAD_TIMEOUT")),
+      timeoutMs,
+    );
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+/** Log hanya nama error, tanpa detail request/URL/kredensial. */
+function logSafeError(context: string, error: unknown): void {
+  const name = error instanceof Error ? error.name : "UnknownError";
+  console.error(`${context} ${name}`);
+}
+
+async function destroyCloudinaryCv(
+  publicId: string,
+  resourceType: CvResourceType,
+  deliveryType: CvDeliveryType,
+): Promise<void> {
+  try {
+    await cloudinaryClient.uploader.destroy(publicId, {
+      resource_type: resourceType,
+      type: deliveryType,
+      invalidate: true,
+    });
+  } catch (error) {
+    logSafeError("[cloudinary-cleanup]", error);
+  }
+}
+
 export async function createApplication(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  // Middleware authenticate sudah mengisi req.user, tapi TypeScript tetap
-  // menganggapnya mungkin kosong.
-  if (!req.user) {
-    res.status(401).json({ message: "Tidak terautentikasi" });
-    return;
-  }
-
-  const result = createApplicationSchema.safeParse(req.body);
-
-  if (!result.success) {
-    res.status(400).json({
-      message: "Data lamaran tidak valid",
-      errors: getFieldErrors(result.error),
-    });
-    return;
-  }
-
-  const jobId = result.data.job_id;
-
-  // Pelamar diambil dari token, bukan dari body request. Kalau applicant_id
-  // diterima dari body, jobseeker bisa mengaku sebagai orang lain.
-  const applicantId = req.user.id;
+  const uploadedFile = req.file;
 
   try {
-    // Cek lowongan lebih dulu supaya pesan errornya jelas 404. Status lowongan
-    // (buka/tutup) belum ada di tabel jobs, jadi satu-satunya cek saat ini
-    // adalah keberadaan lowongan.
+    if (!req.user) {
+      res.status(401).json({ message: "Tidak terautentikasi" });
+      return;
+    }
+
+    // Validasi body berada di dalam try/finally supaya file sementara tetap
+    // dibersihkan ketika job_id tidak ada/tidak valid.
+    const result = createApplicationSchema.safeParse(req.body);
+
+    if (!result.success) {
+      res.status(400).json({
+        message: "Data lamaran tidak valid",
+        errors: getFieldErrors(result.error),
+      });
+      return;
+    }
+
+    const jobId = result.data.job_id;
+    const applicantId = req.user.id;
+
     const [existingJobs] = await db.query<RowDataPacket[]>(
       "SELECT id FROM jobs WHERE id = ? LIMIT 1",
       [jobId],
@@ -163,20 +227,133 @@ export async function createApplication(
       return;
     }
 
-    // Setiap pengajuan membuat baris baru, bukan memperbarui baris lama,
-    // sehingga riwayat lamaran tidak pernah hilang. Pembatalan ganda untuk
-    // pasangan pelamar-lowongan ditolak oleh UNIQUE(applicant_id, job_id,
-    // active_slot) di database, termasuk untuk request bersamaan.
-    const [insertResult] = await db.query<ResultSetHeader>(
-      "INSERT INTO job_applications (applicant_id, job_id, status) VALUES (?, ?, 'submitted')",
-      [applicantId, jobId],
-    );
+    let cvPublicId: string | null = null;
+    let cvResourceType: CvResourceType | null = null;
+    let cvDeliveryType: CvDeliveryType | null = null;
 
-    // Waktu pembuatan aktual ditetapkan oleh database, jadi barisnya
-    // ditarik ulang supaya respons memuat created_at persis seperti di DB.
+    if (uploadedFile) {
+      if (uploadedFile.size === 0) {
+        res
+          .status(400)
+          .json({ message: "File CV kosong. Unggah PDF yang tidak kosong." });
+        return;
+      }
+
+      if (uploadedFile.size > CV_MAX_SIZE_BYTES) {
+        res.status(400).json({ message: "Ukuran CV maksimal 5 MB" });
+        return;
+      }
+
+      const isPdf = await isPdfFile(uploadedFile.path);
+      if (!isPdf) {
+        res.status(400).json({ message: "CV harus berupa file PDF yang valid" });
+        return;
+      }
+
+      if (!ensureCloudinaryConfigured()) {
+        res.status(503).json({
+          message:
+            "Layanan CV belum dikonfigurasi. Hubungi administrator JobTrack.",
+        });
+        return;
+      }
+
+      const expectedPublicId = `${CLOUDINARY_CV_FOLDER}/${randomUUID()}.pdf`;
+
+      let uploadResult: {
+        public_id?: string;
+        resource_type?: string;
+        type?: string;
+      };
+
+      try {
+        uploadResult = await withTimeout(
+          cloudinaryClient.uploader.upload(uploadedFile.path, {
+            public_id: expectedPublicId,
+            resource_type: CLOUDINARY_CV_RESOURCE_TYPE,
+            type: CLOUDINARY_CV_DELIVERY_TYPE,
+            use_filename: false,
+            unique_filename: false,
+            overwrite: false,
+          }),
+          CV_UPLOAD_TIMEOUT_MS,
+        );
+      } catch (uploadError) {
+        logSafeError("[cloudinary-upload]", uploadError);
+        res.status(502).json({ message: "Gagal mengunggah CV. Coba lagi." });
+        return;
+      }
+
+      const uploadedPublicId =
+        typeof uploadResult.public_id === "string"
+          ? uploadResult.public_id.trim()
+          : "";
+
+      if (
+        !uploadedPublicId.startsWith(`${CLOUDINARY_CV_FOLDER}/`) ||
+        uploadResult.resource_type !== CLOUDINARY_CV_RESOURCE_TYPE ||
+        uploadResult.type !== CLOUDINARY_CV_DELIVERY_TYPE
+      ) {
+        logSafeError(
+          "[cloudinary-upload] respons tidak sesuai",
+          new Error("INVALID_UPLOAD_RESULT"),
+        );
+
+        if (uploadedPublicId) {
+          await destroyCloudinaryCv(
+            uploadedPublicId,
+            CLOUDINARY_CV_RESOURCE_TYPE,
+            CLOUDINARY_CV_DELIVERY_TYPE,
+          );
+        }
+
+        res.status(502).json({ message: "Gagal mengunggah CV. Coba lagi." });
+        return;
+      }
+
+      cvPublicId = uploadedPublicId;
+      cvResourceType = CLOUDINARY_CV_RESOURCE_TYPE;
+      cvDeliveryType = CLOUDINARY_CV_DELIVERY_TYPE;
+    }
+
+    let insertId: number;
+    try {
+      const [insertResult] = await db.query<ResultSetHeader>(
+        "INSERT INTO job_applications (applicant_id, job_id, status, cv_public_id, cv_resource_type, cv_delivery_type) VALUES (?, ?, 'submitted', ?, ?, ?)",
+        [applicantId, jobId, cvPublicId, cvResourceType, cvDeliveryType],
+      );
+      insertId = insertResult.insertId;
+    } catch (dbError) {
+      if (cvPublicId && cvResourceType && cvDeliveryType) {
+        await destroyCloudinaryCv(
+          cvPublicId,
+          cvResourceType,
+          cvDeliveryType,
+        );
+      }
+
+      const databaseError = dbError as { code?: string };
+
+      if (databaseError.code === "ER_DUP_ENTRY") {
+        res.status(409).json({
+          message: "Lamaran untuk lowongan ini sudah ada",
+          errors: { job_id: "Lamaran untuk lowongan ini sudah ada" },
+        });
+        return;
+      }
+
+      if (databaseError.code === "ER_NO_REFERENCED_ROW_2") {
+        res.status(404).json({ message: "Lowongan tidak ditemukan" });
+        return;
+      }
+
+      next(dbError);
+      return;
+    }
+
     const [rows] = await db.query<ApplicationRow[]>(
       `SELECT ${APPLICATION_COLUMNS} FROM job_applications WHERE id = ? LIMIT 1`,
-      [insertResult.insertId],
+      [insertId],
     );
 
     const application = rows[0];
@@ -186,13 +363,6 @@ export async function createApplication(
       return;
     }
 
-    // Notifikasi dibuat SETELAH lamaran benar-benar tersimpan, jadi tidak
-    // pernah ada notifikasi untuk lamaran yang gagal dibuat. Kegagalan
-    // notifikasi sengaja tidak menggagalkan request: lamaran sudah sah, dan
-    // notifikasi hanya pelengkap. Kegagalan dicatat agar tidak senyap.
-    //
-    // Duplikat dicegah uq_notification_event + INSERT IGNORE, sehingga retry
-    // request yang sama tidak menghasilkan notifikasi kedua.
     try {
       const [applicantRows] = await db.query<RowDataPacket[]>(
         "SELECT username FROM users WHERE id = ? LIMIT 1",
@@ -208,37 +378,37 @@ export async function createApplication(
         applicantUsername: applicant?.username ?? "Pelamar",
       });
     } catch (notificationError) {
-      console.error("[notification]", notificationError);
+      logSafeError("[notification]", notificationError);
     }
 
-    res.status(201).json({ application });
+    // Referensi Cloudinary tetap internal; jobseeker hanya menerima data
+    // lamaran yang memang dibutuhkan UI.
+    res.status(201).json({
+      application: {
+        id: application.id,
+        applicant_id: application.applicant_id,
+        job_id: application.job_id,
+        status: application.status,
+        created_at: application.created_at,
+        updated_at: application.updated_at,
+      },
+    });
   } catch (error) {
-    // Database juga menolak lamaran aktif duplikat lewat
-    // UNIQUE(applicant_id, job_id, active_slot). Ini menangani kasus dua
-    // request melamar bersamaan, yang lolos dari pengecekan di atas.
-    const databaseError = error as { code?: string };
-
-    if (databaseError.code === "ER_DUP_ENTRY") {
-      res.status(409).json({
-        message: "Lamaran untuk lowongan ini sudah ada",
-        errors: { job_id: "Lamaran untuk lowongan ini sudah ada" },
-      });
-      return;
-    }
-
-    if (databaseError.code === "ER_NO_REFERENCED_ROW_2") {
-      // Lowongan bisa terhapus oleh request lain di antara SELECT di atas
-      // dan INSERT di bawah. FK menolak INSERT dalam kondisi itu, jadi
-      // dijawab sama seperti saat lowongan memang tidak ada.
-      res.status(404).json({ message: "Lowongan tidak ditemukan" });
-      return;
-    }
-
     next(error);
+  } finally {
+    if (uploadedFile?.path) {
+      try {
+        await fs.unlink(uploadedFile.path);
+      } catch (unlinkError) {
+        const code = (unlinkError as { code?: string }).code;
+        if (code !== "ENOENT") {
+          logSafeError("[temp-file-cleanup]", unlinkError);
+        }
+      }
+    }
   }
 }
 
-// GET /api/applications
 export async function listApplications(
   req: Request,
   res: Response,
@@ -249,15 +419,9 @@ export async function listApplications(
     return;
   }
 
-  // Pelamar hanya melihat lamarannya sendiri. applicant_id selalu dari token,
-  // tidak pernah dari query string, supaya tidak bisa memakai identitas orang lain.
   const applicantId = req.user.id;
 
   try {
-    // Riwayat berisi semua status, termasuk lamaran yang sudah ditolak,
-    // supaya alur lamaran ulang bisa dipahami pengguna.
-    // JOIN (bukan LEFT JOIN) karena FK dengan ON DELETE CASCADE menjamin
-    // setiap lamaran selalu punya lowongannya.
     const rows = await fetchJobseekerApplicationRows(applicantId);
 
     const applications = rows.map((row) => ({
@@ -279,7 +443,6 @@ export async function listApplications(
   }
 }
 
-// GET /api/applications/export (khusus jobseeker)
 export async function exportJobseekerApplications(
   req: Request,
   res: Response,
@@ -316,7 +479,6 @@ export async function exportJobseekerApplications(
   }
 }
 
-// GET /api/applications/recruiter (khusus recruiter)
 export async function listRecruiterApplicants(
   req: Request,
   res: Response,
@@ -328,14 +490,13 @@ export async function listRecruiterApplicants(
   }
 
   try {
-    // recruiter_id selalu berasal dari token JWT, bukan query/body, sehingga
-    // recruiter tidak dapat meminta pelamar dari lowongan milik recruiter lain.
     const rows = await fetchRecruiterApplicantRows(req.user.id);
 
     const applicants = rows.map((row) => ({
       id: row.id,
       status: row.status,
       created_at: row.created_at,
+      has_cv: Boolean(row.cv_public_id),
       applicant: {
         username: row.applicant_username,
       },
@@ -353,7 +514,6 @@ export async function listRecruiterApplicants(
   }
 }
 
-// GET /api/applications/recruiter/export (khusus recruiter)
 export async function exportRecruiterApplicants(
   req: Request,
   res: Response,

@@ -2,14 +2,13 @@ import { Router } from "express";
 import { authenticate } from "../config/middleware/auth.middleware.js";
 import { authorizeRoles } from "../config/middleware/authorize.middleware.js";
 import {
+  getRecruiterApplicantCv,
   getRecruiterDashboard,
   listRecruiterApplicantsFiltered,
+  streamRecruiterApplicantCv,
   updateApplicationStatus,
 } from "../controllers/recruiter.controller.js";
 
-// Semua endpoint di sini khusus recruiter: JWT wajib valid dan role harus
-// recruiter. Kepemilikan data diverifikasi di controller memakai id dari
-// token, bukan dari query/body/URL.
 export const recruiterRouter = Router();
 
 recruiterRouter.get(
@@ -26,10 +25,21 @@ recruiterRouter.get(
   listRecruiterApplicantsFiltered,
 );
 
-// PATCH dipakai karena hanya sebagian field (status) yang diubah.
 recruiterRouter.patch(
   "/applicants/:id/status",
   authenticate,
   authorizeRoles("recruiter"),
   updateApplicationStatus,
+);
+
+recruiterRouter.get(
+  "/applicants/:id/cv/stream",
+  streamRecruiterApplicantCv,
+);
+
+recruiterRouter.get(
+  "/applicants/:id/cv",
+  authenticate,
+  authorizeRoles("recruiter"),
+  getRecruiterApplicantCv,
 );

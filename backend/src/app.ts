@@ -1,4 +1,3 @@
-
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
@@ -27,11 +26,8 @@ app.use("/api/applications", applicationRouter);
 app.use("/api/recruiter", recruiterRouter);
 app.use("/api/notifications", notificationRouter);
 
-// Penanda yang dipakai express.json() saat body JSON tidak bisa di-parse.
 function isJsonParseError(error: unknown): boolean {
   if (!(error instanceof SyntaxError)) return false;
-  // Cek properti type, bukan hanya instanceof SyntaxError, supaya SyntaxError
-  // lain di dalam aplikasi tidak salah dianggap kesalahan input klien.
   const parseError = error as SyntaxError & { type?: string };
   return parseError.type === "entity.parse.failed";
 }
@@ -40,7 +36,6 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error("[error]", error);
   if (res.headersSent) return;
 
-  // Body JSON yang rusak adalah kesalahan klien, bukan kesalahan server.
   if (isJsonParseError(error)) {
     res.status(400).json({ message: "Format JSON tidak valid" });
     return;

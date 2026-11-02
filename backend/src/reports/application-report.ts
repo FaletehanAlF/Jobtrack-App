@@ -33,8 +33,6 @@ export class EmptyReportError extends Error {
 }
 
 function textCell(value: string | null | undefined): Cell {
-  // `type: String` + format teks memastikan nilai pengguna tidak pernah
-  // ditafsirkan Excel sebagai formula, meskipun diawali =, +, -, atau @.
   return {
     value: value ?? "",
     type: String,
