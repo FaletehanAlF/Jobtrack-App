@@ -133,6 +133,7 @@ class RecruiterApplicantModel {
   final DateTime? createdAt;
   final String applicantUsername;
   final ApplicationJob job;
+  final bool hasCv;
 
   const RecruiterApplicantModel({
     required this.id,
@@ -140,6 +141,7 @@ class RecruiterApplicantModel {
     required this.createdAt,
     required this.applicantUsername,
     required this.job,
+    this.hasCv = false,
   });
 
   factory RecruiterApplicantModel.fromJson(Map<String, dynamic> json) {
@@ -164,6 +166,7 @@ class RecruiterApplicantModel {
       createdAt: ApplicationModel._parseDate(json['created_at']),
       applicantUsername: applicantJson['username'] as String? ?? '',
       job: ApplicationJob.fromJson(jobJson),
+      hasCv: json['has_cv'] == true,
     );
   }
 

@@ -274,32 +274,33 @@ void main() {
     expect(service.dashboardCalls, greaterThan(callsBefore));
   });
 
-  testWidgets('Tombol Lihat pelamar membuka tab Pelamar dengan filter lowongan', (
-    WidgetTester tester,
-  ) async {
-    _setSurfaceSize(tester, const Size(1280, 1000));
+  testWidgets(
+    'Tombol Lihat pelamar membuka tab Pelamar dengan filter lowongan',
+    (WidgetTester tester) async {
+      _setSurfaceSize(tester, const Size(1280, 1000));
 
-    final service = _FakeRecruiterService(
-      dashboard: RecruiterDashboardData(
-        stats: const RecruiterDashboardStats(
-          jobs: 1,
-          applicants: 1,
-          submitted: 1,
-          rejected: 0,
+      final service = _FakeRecruiterService(
+        dashboard: RecruiterDashboardData(
+          stats: const RecruiterDashboardStats(
+            jobs: 1,
+            applicants: 1,
+            submitted: 1,
+            rejected: 0,
+          ),
+          jobs: [_jobStats(id: 3)],
         ),
-        jobs: [_jobStats(id: 3)],
-      ),
-      applicants: [_applicant(id: 9)],
-    );
+        applicants: [_applicant(id: 9)],
+      );
 
-    await _pumpRecruiterHome(tester, service);
+      await _pumpRecruiterHome(tester, service);
 
-    await tester.tap(find.byKey(const Key('recruiter-job-3-open')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('recruiter-job-3-open')));
+      await tester.pumpAndSettle();
 
-    expect(service.applicantRequests.last['job_id'], 3);
-    expect(find.text('budi'), findsOneWidget);
-  });
+      expect(service.applicantRequests.last['job_id'], 3);
+      expect(find.text('budi'), findsOneWidget);
+    },
+  );
 
   testWidgets('Filter status diteruskan ke backend, bukan disaring di UI', (
     WidgetTester tester,
@@ -379,10 +380,7 @@ void main() {
     await tester.tap(find.byKey(const Key('recruiter-9-reject')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('Lamaran tidak ditemukan'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Lamaran tidak ditemukan'), findsOneWidget);
   });
 
   testWidgets('Daftar pelamar kosong menampilkan empty state', (
@@ -418,6 +416,47 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Coba Lagi'), findsWidgets);
+  });
+
+  testWidgets('Dashboard recruiter responsif di mobile dan web', (
+    WidgetTester tester,
+  ) async {
+    final service = _FakeRecruiterService(
+      dashboard: RecruiterDashboardData(
+        stats: const RecruiterDashboardStats(
+          jobs: 2,
+          applicants: 7,
+          submitted: 5,
+          rejected: 2,
+        ),
+        jobs: [
+          _jobStats(id: 3, applicants: 4, submitted: 3, rejected: 1),
+          _jobStats(
+            id: 4,
+            title: 'Flutter Developer',
+            applicants: 3,
+            submitted: 2,
+            rejected: 1,
+          ),
+        ],
+      ),
+    );
+
+    _setSurfaceSize(tester, const Size(360, 780));
+    await _pumpRecruiterHome(tester, service);
+
+    final mobileFirst = tester.getTopLeft(find.text('Backend Developer'));
+    final mobileSecond = tester.getTopLeft(find.text('Flutter Developer'));
+    expect(mobileFirst.dx, mobileSecond.dx);
+    expect(mobileSecond.dy, greaterThan(mobileFirst.dy));
+
+    _setSurfaceSize(tester, const Size(1280, 1000));
+    await _pumpRecruiterHome(tester, service);
+
+    final webFirst = tester.getTopLeft(find.text('Backend Developer'));
+    final webSecond = tester.getTopLeft(find.text('Flutter Developer'));
+    expect(webSecond.dx, greaterThan(webFirst.dx));
+    expect(webSecond.dy, closeTo(webFirst.dy, 1));
   });
 
   testWidgets('Jobseeker tidak melihat menu recruiter', (

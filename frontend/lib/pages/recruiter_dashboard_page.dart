@@ -48,8 +48,8 @@ class RecruiterDashboardPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _Greeting(userName: userName),
-                      const SizedBox(height: 20),
+                      _Greeting(userName: userName, compact: !isWide),
+                      SizedBox(height: isWide ? 24 : 20),
                       if (loading && data == null)
                         const _PanelLoading(label: 'Memuat dashboard...')
                       else if (error != null && data == null)
@@ -81,31 +81,43 @@ class RecruiterDashboardPage extends StatelessWidget {
 }
 
 class _Greeting extends StatelessWidget {
-  const _Greeting({this.userName});
+  const _Greeting({this.userName, this.compact = false});
 
   final String? userName;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final name = userName;
+    final textTheme = Theme.of(context).textTheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          name == null || name.isEmpty ? 'Dashboard Recruiter' : 'Halo, $name!',
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: JobTrackColors.navy,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 640),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            name == null || name.isEmpty
+                ? 'Dashboard Recruiter'
+                : 'Halo, $name!',
+            style: textTheme.headlineSmall?.copyWith(
+              fontSize: compact ? 22 : 28,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.4,
+              color: JobTrackColors.navy,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Ringkasan lowongan dan pelamar dari lowongan milikmu.',
-          style: TextStyle(fontSize: 14.5, color: JobTrackColors.navyMuted),
-        ),
-      ],
+          const SizedBox(height: 6),
+          Text(
+            'Ringkasan lowongan dan pelamar dari lowongan milikmu.',
+            style: textTheme.bodyMedium?.copyWith(
+              fontSize: 14,
+              height: 1.5,
+              color: JobTrackColors.navyMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -125,21 +137,27 @@ class _StatsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Ringkasan',
-          style: TextStyle(
+          style: textTheme.titleMedium?.copyWith(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: JobTrackColors.navy,
           ),
         ),
         const SizedBox(height: 3),
-        const Text(
+        Text(
           'Dihitung dari lowongan yang kamu miliki.',
-          style: TextStyle(fontSize: 12.5, color: JobTrackColors.navyMuted),
+          style: textTheme.bodySmall?.copyWith(
+            fontSize: 12.5,
+            height: 1.4,
+            color: JobTrackColors.navyMuted,
+          ),
         ),
         const SizedBox(height: 12),
         if (error != null) ...[
@@ -234,7 +252,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: JobTrackColors.surface,
         borderRadius: BorderRadius.circular(14),
@@ -242,6 +260,7 @@ class _StatCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Container(
             width: 34,
@@ -253,25 +272,33 @@ class _StatCard extends StatelessWidget {
             alignment: Alignment.center,
             child: Icon(icon, size: 18, color: color),
           ),
-          const SizedBox(height: 10),
-          Text(
-            '$value',
-            key: valueKey,
-            style: const TextStyle(
-              fontSize: 26,
-              height: 1,
-              fontWeight: FontWeight.w800,
-              color: JobTrackColors.navy,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: JobTrackColors.navyMuted,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              Text(
+                '$value',
+                key: valueKey,
+                style: const TextStyle(
+                  fontSize: 26,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  color: JobTrackColors.navy,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.3,
+                  fontWeight: FontWeight.w600,
+                  color: JobTrackColors.navyMuted,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -292,30 +319,49 @@ class _JobsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
-              child: Text(
-                'Lowongan saya',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: JobTrackColors.navy,
-                ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Lowongan saya',
+                    style: textTheme.titleMedium?.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: JobTrackColors.navy,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Ketuk kartu untuk melihat pelamar tiap lowongan.',
+                    style: textTheme.bodySmall?.copyWith(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: JobTrackColors.navyMuted,
+                    ),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 8),
             IconButton(
               tooltip: 'Muat ulang dashboard',
               onPressed: onRefresh,
-              icon: const Icon(Icons.refresh),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.refresh, size: 20),
               color: JobTrackColors.navyMuted,
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         if (jobs.isEmpty)
           const _EmptyState(
             icon: Icons.work_off_outlined,
@@ -324,16 +370,39 @@ class _JobsPanel extends StatelessWidget {
                 'muncul di sini beserta jumlah pelamarnya.',
           )
         else
-          Column(
-            children: [
-              for (var index = 0; index < jobs.length; index++) ...[
-                if (index > 0) const SizedBox(height: 10),
-                _JobStatsCard(
-                  job: jobs[index],
-                  onOpen: () => onOpenApplicants(jobs[index]),
-                ),
-              ],
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 960 ? 2 : 1;
+              final rows = (jobs.length / columns).ceil();
+
+              return Column(
+                children: [
+                  for (var row = 0; row < rows; row++) ...[
+                    if (row > 0) const SizedBox(height: 12),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var column = 0; column < columns; column++) ...[
+                            if (column > 0) const SizedBox(width: 12),
+                            Expanded(
+                              child: row * columns + column < jobs.length
+                                  ? _JobStatsCard(
+                                      job: jobs[row * columns + column],
+                                      onOpen: () => onOpenApplicants(
+                                        jobs[row * columns + column],
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
       ],
     );
@@ -355,91 +424,117 @@ class _JobStatsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onOpen,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: JobTrackColors.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          job.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w700,
-                            color: JobTrackColors.navy,
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              job.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 15.5,
+                                height: 1.3,
+                                fontWeight: FontWeight.w700,
+                                color: JobTrackColors.navy,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              job.company,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: JobTrackColors.blue,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          job.company,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: JobTrackColors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      _CountBadge(
+                        key: Key('recruiter-job-${job.id}-applicants'),
+                        count: job.applicantCount,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  _CountBadge(
-                    key: Key('recruiter-job-${job.id}-applicants'),
-                    count: job.applicantCount,
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _MetaItem(
+                        icon: Icons.location_on_outlined,
+                        text: job.location.isEmpty
+                            ? 'Lokasi tidak dicantumkan'
+                            : job.location,
+                      ),
+                      _MetaItem(
+                        icon: Icons.send_outlined,
+                        text: '${job.submittedCount} dikirim',
+                      ),
+                      _MetaItem(
+                        icon: Icons.cancel_outlined,
+                        text: '${job.rejectedCount} ditolak',
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 14,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _MetaItem(
-                    icon: Icons.location_on_outlined,
-                    text: job.location.isEmpty
-                        ? 'Lokasi tidak dicantumkan'
-                        : job.location,
-                  ),
-                  _MetaItem(
-                    icon: Icons.send_outlined,
-                    text: '${job.submittedCount} dikirim',
-                  ),
-                  _MetaItem(
-                    icon: Icons.cancel_outlined,
-                    text: '${job.rejectedCount} ditolak',
-                  ),
-                  TextButton(
-                    key: Key('recruiter-job-${job.id}-open'),
-                    onPressed: onOpen,
-                    style: TextButton.styleFrom(
-                      foregroundColor: JobTrackColors.blue,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 4,
-                      ),
-                      minimumSize: const Size(0, 32),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      textStyle: GoogleFonts.montserrat(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(height: 1, color: JobTrackColors.border),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        key: Key('recruiter-job-${job.id}-open'),
+                        onPressed: onOpen,
+                        style: TextButton.styleFrom(
+                          foregroundColor: JobTrackColors.blue,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          minimumSize: const Size(0, 36),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: GoogleFonts.montserrat(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Lihat pelamar'),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward, size: 14),
+                          ],
+                        ),
                       ),
                     ),
-                    child: const Text('Lihat pelamar'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -489,9 +584,16 @@ class _MetaItem extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: JobTrackColors.navyMuted),
         const SizedBox(width: 4),
-        Text(
-          text,
-          style: const TextStyle(fontSize: 12, color: JobTrackColors.navyMuted),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              color: JobTrackColors.navyMuted,
+            ),
+          ),
         ),
       ],
     );

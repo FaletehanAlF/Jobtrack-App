@@ -228,6 +228,56 @@ class ApiService {
     );
   }
 
+  /// Mengirim multipart/form-data. Content-Type tidak diisi manual supaya
+  /// package:http menambahkan boundary yang benar.
+  Future<dynamic> postMultipart(
+    String endpoint, {
+    Map<String, String> fields = const {},
+    String? fileField,
+    Uint8List? fileBytes,
+    String? fileName,
+  }) async {
+    final headers = await _headers();
+    headers.remove('Content-Type');
+
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$_baseUrl$endpoint'),
+    )..headers.addAll(headers);
+
+    request.fields.addAll(fields);
+
+    if (fileField != null && fileBytes != null && fileName != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fileField,
+          fileBytes,
+          filename: fileName,
+        ),
+      );
+    }
+
+    try {
+      final streamed = await request
+          .send()
+          .timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw ApiException(
+        0,
+        'Tidak dapat terhubung ke server. Pastikan backend berjalan.',
+      );
+    } catch (_) {
+      throw ApiException(
+        0,
+        'Tidak dapat terhubung ke server. Pastikan backend berjalan.',
+      );
+    }
+  }
+
   Future<dynamic> put(String endpoint, Map<String, dynamic> data) async {
     final headers = await _headers();
     return _send(

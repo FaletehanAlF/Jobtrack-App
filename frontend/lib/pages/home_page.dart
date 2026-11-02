@@ -578,7 +578,7 @@ class _HomePageState extends State<HomePage> {
     return IconButton(
       key: const Key('home-notifications-button'),
       tooltip: unread > 0 ? '$unread notifikasi belum dibaca' : 'Notifikasi',
-      onPressed: _openNotificationsTab,
+      onPressed: null,
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -626,8 +626,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openJob(JobModel job) {
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => JobDetailPage(job: job)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => JobDetailPage(
+          job: job,
+          onApplied: () => _loadApplications(),
+        ),
+      ),
+    );
   }
 
   Future<void> _openJobForm({JobModel? job}) async {
@@ -848,7 +854,6 @@ class _HomePageState extends State<HomePage> {
     'Lamaran',
     'Tersimpan',
     'Profil',
-    'Notifikasi',
   ];
 
   static const _recruiterTitles = <String>[
@@ -856,7 +861,6 @@ class _HomePageState extends State<HomePage> {
     'Lowongan',
     'Pelamar',
     'Profil',
-    'Notifikasi',
   ];
 
   static const _jobseekerRailDestinations = <NavigationRailDestination>[
@@ -885,11 +889,7 @@ class _HomePageState extends State<HomePage> {
       selectedIcon: Icon(Icons.person),
       label: Text('Profil'),
     ),
-    NavigationRailDestination(
-      icon: Icon(Icons.notifications_none),
-      selectedIcon: Icon(Icons.notifications),
-      label: Text('Notifikasi'),
-    ),
+
   ];
 
   static const _recruiterRailDestinations = <NavigationRailDestination>[
@@ -913,11 +913,7 @@ class _HomePageState extends State<HomePage> {
       selectedIcon: Icon(Icons.person),
       label: Text('Profil'),
     ),
-    NavigationRailDestination(
-      icon: Icon(Icons.notifications_none),
-      selectedIcon: Icon(Icons.notifications),
-      label: Text('Notifikasi'),
-    ),
+
   ];
 
   static const _jobseekerBottomItems = <BottomNavigationBarItem>[
@@ -946,11 +942,7 @@ class _HomePageState extends State<HomePage> {
       activeIcon: Icon(Icons.person),
       label: 'Profil',
     ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.notifications_none),
-      activeIcon: Icon(Icons.notifications),
-      label: 'Notifikasi',
-    ),
+
   ];
 
   static const _recruiterBottomItems = <BottomNavigationBarItem>[
@@ -974,11 +966,7 @@ class _HomePageState extends State<HomePage> {
       activeIcon: Icon(Icons.person),
       label: 'Profil',
     ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.notifications_none),
-      activeIcon: Icon(Icons.notifications),
-      label: 'Notifikasi',
-    ),
+
   ];
 
   @override
@@ -1031,8 +1019,7 @@ class _HomePageState extends State<HomePage> {
               onLoadMore: _loadMoreApplicants,
               loadingMore: _loadingMoreApplicants,
             ),
-            ProfilePage(user: _user, onLogout: _confirmLogout),
-            _notificationsView(),
+
           ]
         : <Widget>[
             HomeTab(
@@ -1066,8 +1053,7 @@ class _HomePageState extends State<HomePage> {
               applicationService: widget.applicationService,
             ),
             const SavedJobsPage(),
-            ProfilePage(user: _user, onLogout: _confirmLogout),
-            _notificationsView(),
+
           ];
 
     final titles = isRecruiter ? _recruiterTitles : _jobseekerTitles;
@@ -1139,51 +1125,67 @@ class _HomePageState extends State<HomePage> {
             child: Row(
               children: [
                 if (isWide) ...[
-                  NavigationRail(
-                    extended: isExtended,
-                    labelType: isExtended
-                        ? NavigationRailLabelType.none
-                        : NavigationRailLabelType.all,
-                    minWidth: 76,
-                    minExtendedWidth: 220,
-                    backgroundColor: JobTrackColors.surface,
-                    indicatorColor: JobTrackColors.blueSoft,
-                    selectedIconTheme: const IconThemeData(
-                      color: JobTrackColors.blue,
-                    ),
-                    unselectedIconTheme: const IconThemeData(
-                      color: JobTrackColors.navyMuted,
-                    ),
-                    selectedLabelTextStyle: const TextStyle(
-                      color: JobTrackColors.blue,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    unselectedLabelTextStyle: const TextStyle(
-                      color: JobTrackColors.navyMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    leading: SizedBox(
-                      height: 40,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isExtended ? 16 : 0,
-                        ),
-                        child: isExtended
-                            ? const Align(
-                                alignment: Alignment.centerLeft,
-                                child: JobTrackBrand(logoSize: 32),
-                              )
-                            : const Center(
-                                child: JobTrackBrand(
-                                  logoSize: 36,
-                                  showText: false,
-                                ),
+                  SizedBox(
+                    width: isExtended ? 220 : 76,
+                    child: Material(
+                      color: JobTrackColors.surface,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              isExtended ? 16 : 0,
+                              12,
+                              isExtended ? 16 : 0,
+                              24,
+                            ),
+                            child: SizedBox(
+                              height: 36,
+                              child: isExtended
+                                  ? const Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: JobTrackBrand(logoSize: 30),
+                                    )
+                                  : const Center(
+                                      child: JobTrackBrand(
+                                        logoSize: 34,
+                                        showText: false,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          Expanded(
+                            child: NavigationRail(
+                              extended: isExtended,
+                              labelType: isExtended
+                                  ? NavigationRailLabelType.none
+                                  : NavigationRailLabelType.all,
+                              minWidth: 76,
+                              minExtendedWidth: 220,
+                              backgroundColor: JobTrackColors.surface,
+                              indicatorColor: JobTrackColors.blueSoft,
+                              selectedIconTheme: const IconThemeData(
+                                color: JobTrackColors.blue,
                               ),
+                              unselectedIconTheme: const IconThemeData(
+                                color: JobTrackColors.navyMuted,
+                              ),
+                              selectedLabelTextStyle: const TextStyle(
+                                color: JobTrackColors.blue,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              unselectedLabelTextStyle: const TextStyle(
+                                color: JobTrackColors.navyMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              selectedIndex: currentIndex,
+                              onDestinationSelected: _selectTab,
+                              destinations: railDestinations,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    selectedIndex: currentIndex,
-                    onDestinationSelected: _selectTab,
-                    destinations: railDestinations,
                   ),
                   const VerticalDivider(
                     width: 1,

@@ -6,6 +6,7 @@ import '../models/recruiter_model.dart';
 import '../services/application_service.dart';
 import '../theme/jobtrack_theme.dart';
 import '../widgets/application_widgets.dart';
+import '../utils/open_url.dart';
 import '../widgets/excel_export_button.dart';
 
 class RecruiterApplicantsPage extends StatelessWidget {
@@ -226,6 +227,25 @@ class RecruiterApplicantsPage extends StatelessWidget {
                                 updating:
                                     updatingApplicationId ==
                                     applicants[index].id,
+                                onOpenCv: (applicationId, download) async {
+                                  final messenger = ScaffoldMessenger.of(
+                                    context,
+                                  );
+                                  try {
+                                    final url =
+                                        await (applicationService ??
+                                                ApplicationService())
+                                            .fetchApplicantCvUrl(
+                                              applicationId,
+                                              download: download,
+                                            );
+                                    openUrl(url);
+                                  } catch (error) {
+                                    messenger.showSnackBar(
+                                      SnackBar(content: Text(error.toString())),
+                                    );
+                                  }
+                                },
                               ),
                             ],
                             if (hasMore && onLoadMore != null) ...[
@@ -388,11 +408,13 @@ class _ApplicantCard extends StatelessWidget {
     required this.applicant,
     this.onUpdateStatus,
     this.updating = false,
+    this.onOpenCv,
   });
 
   final RecruiterApplicantModel applicant;
   final Future<void> Function(RecruiterApplicantModel, String)? onUpdateStatus;
   final bool updating;
+  final Future<void> Function(int applicationId, bool download)? onOpenCv;
 
   @override
   Widget build(BuildContext context) {
@@ -471,6 +493,53 @@ class _ApplicantCard extends StatelessWidget {
               ),
             ],
           ),
+          if (applicant.hasCv && onOpenCv != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => onOpenCv!(applicant.id, false),
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('Lihat CV'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: JobTrackColors.blue,
+                    side: const BorderSide(color: JobTrackColors.border),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => onOpenCv!(applicant.id, true),
+                  icon: const Icon(Icons.download_outlined, size: 16),
+                  label: const Text('Download CV'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: JobTrackColors.blue,
+                    side: const BorderSide(color: JobTrackColors.border),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (updateStatus != null) ...[
             const SizedBox(height: 6),
             if (updating)

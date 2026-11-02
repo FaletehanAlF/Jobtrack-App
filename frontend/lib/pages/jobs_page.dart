@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/cv_file.dart';
 import '../models/job_model.dart';
+import '../services/application_service.dart';
 import '../theme/jobtrack_theme.dart';
+import '../utils/cv_file_picker.dart';
 
 class JobsPage extends StatelessWidget {
   const JobsPage({
@@ -382,84 +385,339 @@ class _JobCard extends StatelessWidget {
   }
 }
 
-class JobDetailPage extends StatelessWidget {
-  const JobDetailPage({super.key, required this.job});
+class JobDetailPage extends StatefulWidget {
+  const JobDetailPage({
+    super.key,
+    required this.job,
+    this.onApplied,
+  });
 
   final JobModel job;
+  final Future<void> Function()? onApplied;
+
+  @override
+  State<JobDetailPage> createState() => _JobDetailPageState();
+}
+
+class _JobDetailPageState extends State<JobDetailPage> {
+  PickedCvFile? _cv;
+  bool _submitting = false;
+  String? _submitError;
+
+  Future<void> _submitApplication() async {
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+
+    try {
+      await ApplicationService().createApplication(
+        jobId: widget.job.id,
+        cv: _cv,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _cv == null
+                ? 'Lamaran untuk "${widget.job.title}" berhasil dikirim.'
+                : 'Lamaran dengan CV berhasil dikirim.',
+          ),
+        ),
+      );
+
+      if (widget.onApplied != null) {
+        await widget.onApplied!();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _submitError = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  Future<void> _pickCv() async {
+    final file = await pickCvFile();
+    if (file == null) return;
+
+    if (file.name.isNotEmpty && !file.name.toLowerCase().endsWith('.pdf')) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hanya file PDF yang diterima.')),
+      );
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ukuran CV maksimal 5 MB.')),
+      );
+      return;
+    }
+
+    setState(() => _cv = file);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final job = widget.job;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: JobTrackColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: JobTrackColors.surface,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
-        title: const Text('Detail Lowongan'),
         foregroundColor: JobTrackColors.navy,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 820),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    job.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: JobTrackColors.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    job.company,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: JobTrackColors.blue,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _DetailRow(
-                    icon: Icons.location_on_outlined,
-                    text: job.location,
-                  ),
-                  _DetailRow(
-                    icon: Icons.calendar_today_outlined,
-                    text: _formatDate(job.createdAt),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Deskripsi',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: JobTrackColors.navy,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    job.description,
-                    style: const TextStyle(
-                      fontSize: 14.5,
-                      height: 1.6,
-                      color: JobTrackColors.navy,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        title: Text(
+          'Detail Lowongan',
+          style: textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: JobTrackColors.navy,
           ),
-        ],
+        ),
+        shape: const Border(bottom: BorderSide(color: JobTrackColors.border)),
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = constraints.maxWidth >= 900 ? 32.0 : 16.0;
+
+            return ListView(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                20,
+                horizontalPadding,
+                32,
+              ),
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 820),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _DetailCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                job.title,
+                                style: textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: JobTrackColors.navy,
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                job.company,
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: JobTrackColors.blue,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _MetaChip(
+                                    key: const Key('job-detail-location'),
+                                    icon: Icons.location_on_outlined,
+                                    label: job.location.isEmpty
+                                        ? 'Lokasi tidak dicantumkan'
+                                        : job.location,
+                                  ),
+                                  _MetaChip(
+                                    key: const Key('job-detail-created-at'),
+                                    icon: Icons.calendar_today_outlined,
+                                    label:
+                                        'Dibuat ${_formatDate(job.createdAt)}',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _DetailCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.description_outlined,
+                                    size: 18,
+                                    color: JobTrackColors.blue,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Deskripsi',
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: JobTrackColors.navy,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                job.description.isEmpty
+                                    ? 'Deskripsi belum diisi.'
+                                    : job.description,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  fontSize: 14.5,
+                                  height: 1.7,
+                                  color: JobTrackColors.navy,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _DetailCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.upload_file_outlined,
+                                    size: 18,
+                                    color: JobTrackColors.blue,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Ajukan Lamaran',
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: JobTrackColors.navy,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'CV bersifat opsional (maksimal 5 MB, hanya PDF).',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  color: JobTrackColors.navyMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              if (_cv != null)
+                                Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: JobTrackColors.blueSoft,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.check_circle_outline,
+                                        size: 16,
+                                        color: JobTrackColors.blue,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          _cv!.name,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: JobTrackColors.navy,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.close,
+                                          size: 16,
+                                        ),
+                                        onPressed: () => setState(() => _cv = null),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (_submitError != null && _submitError!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    _submitError!,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: JobTrackColors.danger,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.start,
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: _submitting ? null : _pickCv,
+                                    icon: const Icon(
+                                      Icons.attach_file,
+                                      size: 16,
+                                    ),
+                                    label: const Text('Pilih CV'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: JobTrackColors.navy,
+                                      side: const BorderSide(
+                                        color: JobTrackColors.border,
+                                      ),
+                                    ),
+                                  ),
+                                  FilledButton(
+                                    onPressed: _submitting ? null : _submitApplication,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: JobTrackColors.blue,
+                                    ),
+                                    child: _submitting
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Kirim Lamaran'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  String _formatDate(DateTime? date) {
+  static String _formatDate(DateTime? date) {
     if (date == null) return '-';
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
@@ -467,25 +725,54 @@ class JobDetailPage extends StatelessWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.icon, required this.text});
+class _DetailCard extends StatelessWidget {
+  const _DetailCard({required this.child});
 
-  final IconData icon;
-  final String text;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: JobTrackColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: JobTrackColors.border),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({super.key, required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: JobTrackColors.background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: JobTrackColors.border),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: JobTrackColors.navyMuted),
-          const SizedBox(width: 8),
-          Expanded(
+          Icon(icon, size: 15, color: JobTrackColors.navyMuted),
+          const SizedBox(width: 6),
+          Flexible(
             child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 14,
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
                 color: JobTrackColors.navyMuted,
               ),
             ),
