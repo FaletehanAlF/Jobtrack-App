@@ -9,7 +9,7 @@ import 'package:frontend/pages/home_page.dart';
 import 'package:frontend/pages/job_form_page.dart';
 import 'package:frontend/services/application_service.dart';
 import 'package:frontend/services/job_service.dart';
-import 'package:frontend/services/notification_service.dart';
+
 import 'package:frontend/services/recruiter_service.dart';
 
 class _FakeJobService extends JobService {
@@ -112,11 +112,6 @@ class _FakeRecruiterService extends RecruiterService {
   }
 }
 
-class _FakeNotificationService extends NotificationService {
-  @override
-  Future<int> fetchUnreadCount() async => 0;
-}
-
 JobModel _job({
   required int id,
   required int recruiterId,
@@ -171,7 +166,6 @@ Future<void> _pumpHome(
         jobService: jobService,
         applicationService: _EmptyApplicationService(),
         recruiterService: _FakeRecruiterService(),
-        notificationService: _FakeNotificationService(),
       ),
     ),
   );

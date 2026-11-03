@@ -56,19 +56,7 @@ class ApplicationService {
     throw ApiException(0, 'Respons daftar pelamar tidak sesuai format.');
   }
 
-  Future<ApiDownload> exportApplications() {
-    return _api.getFile(
-      '/applications/export',
-      fallbackFileName: 'laporan_lamaran_${_dateStamp()}.xlsx',
-    );
-  }
 
-  Future<ApiDownload> exportRecruiterApplicants() {
-    return _api.getFile(
-      '/applications/recruiter/export',
-      fallbackFileName: 'laporan_pelamar_${_dateStamp()}.xlsx',
-    );
-  }
 
   Future<String> fetchApplicantCvUrl(
     int applicationId, {
@@ -94,10 +82,4 @@ class ApplicationService {
     throw ApiException(0, 'Respons akses CV tidak sesuai format.');
   }
 
-  static String _dateStamp() {
-    final now = DateTime.now();
-    final month = now.month.toString().padLeft(2, '0');
-    final day = now.day.toString().padLeft(2, '0');
-    return '${now.year}-$month-$day';
-  }
 }

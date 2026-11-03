@@ -25,8 +25,7 @@ class JobsPage extends StatelessWidget {
   final String? error;
   final Future<void> Function() onRefresh;
 
-  /// ID pengguna yang sedang login, dipakai untuk menentukan lowongan mana
-  /// yang boleh diubah atau dihapus oleh recruiter.
+
   final int? currentUserId;
 
   final Future<void> Function()? onCreateJob;
@@ -592,12 +591,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
                             children: [
                               Row(
                                 children: [
-                                  const Icon(
-                                    Icons.upload_file_outlined,
-                                    size: 18,
-                                    color: JobTrackColors.blue,
-                                  ),
-                                  const SizedBox(width: 8),
                                   Text(
                                     'Ajukan Lamaran',
                                     style: textTheme.titleMedium?.copyWith(
@@ -644,10 +637,10 @@ class _JobDetailPageState extends State<JobDetailPage> {
                                         ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(
-                                          Icons.close,
-                                          size: 16,
-                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        iconSize: 16,
+                                        icon: const Icon(Icons.close),
                                         onPressed: () => setState(() => _cv = null),
                                       ),
                                     ],
@@ -765,7 +758,8 @@ class _MetaChip extends StatelessWidget {
         children: [
           Icon(icon, size: 15, color: JobTrackColors.navyMuted),
           const SizedBox(width: 6),
-          Flexible(
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
             child: Text(
               label,
               maxLines: 1,

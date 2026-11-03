@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 
-import 'applications_page.dart';
-import 'job_form_page.dart';
-import 'login_page.dart';
-import 'home_tab.dart';
-import 'jobs_page.dart';
-import 'notifications_page.dart';
-import 'profile_page.dart';
-import 'recruiter_applicants_page.dart';
-import 'recruiter_dashboard_page.dart';
-import 'saved_jobs_page.dart';
+import '../controllers/recruiter_applicants_controller.dart';
 import '../models/application_model.dart';
 import '../models/job_model.dart';
-import '../models/notification_model.dart';
 import '../models/recruiter_model.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/application_service.dart';
 import '../services/auth_service.dart';
 import '../services/job_service.dart';
-import '../services/notification_service.dart';
 import '../services/recruiter_service.dart';
 import '../theme/jobtrack_theme.dart';
+import '../widgets/home_account_menu.dart';
 import '../widgets/jobtrack_brand.dart';
+import 'applications_page.dart';
+import 'home_navigation.dart';
+import 'home_tab.dart';
+import 'job_form_page.dart';
+import 'jobs_page.dart';
+import 'login_page.dart';
+import 'profile_page.dart';
+import 'recruiter_applicants_page.dart';
+import 'recruiter_dashboard_page.dart';
+import 'saved_jobs_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -32,7 +32,6 @@ class HomePage extends StatefulWidget {
     this.applicationService,
     this.authService,
     this.recruiterService,
-    this.notificationService,
   });
 
   final UserModel? user;
@@ -45,14 +44,16 @@ class HomePage extends StatefulWidget {
 
   final RecruiterService? recruiterService;
 
-  final NotificationService? notificationService;
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
   late final AuthService _authService = widget.authService ?? AuthService();
+  late final RecruiterService _recruiterService =
+      widget.recruiterService ?? RecruiterService();
+  late final RecruiterApplicantsController _applicants =
+      RecruiterApplicantsController(service: _recruiterService);
 
   UserModel? _user;
   bool _loadingUser = true;
@@ -67,51 +68,29 @@ class _HomePageState extends State<HomePage> {
   bool _loadingApplications = true;
   String? _applicationsError;
 
-  List<RecruiterApplicantModel> _recruiterApplicants = const [];
-  bool _loadingRecruiterApplicants = true;
-  String? _recruiterApplicantsError;
-
   RecruiterDashboardData? _recruiterDashboard;
   bool _loadingRecruiterDashboard = true;
   String? _recruiterDashboardError;
-
-  int? _applicantJobFilter;
-  String? _applicantStatusFilter;
-  int? _applicantsTotal;
-  bool _hasMoreApplicants = false;
-  bool _loadingMoreApplicants = false;
-
-  int? _updatingApplicationId;
-
-  static const int _applicantsPageSize = 50;
-
-  List<NotificationModel> _notifications = const [];
-  int _unreadNotifications = 0;
-  bool _loadingNotifications = false;
-  String? _notificationsError;
-  bool _hasMoreNotifications = false;
-  bool _loadingMoreNotifications = false;
-  bool _markingAllRead = false;
-  int? _updatingNotificationId;
-
-  bool _notificationsOpened = false;
-
-  static const int _notificationsPageSize = 50;
-
-  NotificationService get _notificationService =>
-      widget.notificationService ?? NotificationService();
-
-  int get _notificationsTabIndex => _user?.role == 'recruiter' ? 4 : 5;
-
-  RecruiterService get _recruiterService =>
-      widget.recruiterService ?? RecruiterService();
 
   @override
   void initState() {
     super.initState();
     _user = widget.user;
+    _applicants.addListener(_onControllerChanged);
     _loadUser();
     _loadJobs();
+  }
+
+  @override
+  void dispose() {
+    _applicants
+      ..removeListener(_onControllerChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadJobs() async {
@@ -157,9 +136,8 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _loadingUser = false;
           _loadingApplications = false;
-          _loadingRecruiterApplicants = false;
-          _loadingNotifications = false;
         });
+        _applicants.reset();
         return;
       }
     }
@@ -177,17 +155,13 @@ class _HomePageState extends State<HomePage> {
       await _loadRecruiterApplicants();
     }
 
-    await _refreshUnreadCount();
-
     if (mounted && user.role != 'jobseeker' && user.role != 'recruiter') {
       setState(() {
         _applications = const [];
         _loadingApplications = false;
         _applicationsError = null;
-        _recruiterApplicants = const [];
-        _loadingRecruiterApplicants = false;
-        _recruiterApplicantsError = null;
       });
+      _applicants.reset();
     }
   }
 
@@ -230,69 +204,18 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadRecruiterApplicants() async {
     if (_user?.role != 'recruiter') {
-      if (!mounted) return;
-      setState(() {
-        _recruiterApplicants = const [];
-        _loadingRecruiterApplicants = false;
-        _recruiterApplicantsError = null;
-        _applicantsTotal = null;
-        _hasMoreApplicants = false;
-      });
+      _applicants.reset();
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _loadingRecruiterApplicants = true;
-        _recruiterApplicantsError = null;
-      });
-    }
-
-    try {
-      final page = await _recruiterService.fetchApplicants(
-        jobId: _applicantJobFilter,
-        status: _applicantStatusFilter,
-        limit: _applicantsPageSize,
-        offset: 0,
-      );
-      if (!mounted) return;
-      setState(() {
-        _recruiterApplicants = page.applicants;
-        _applicantsTotal = page.total;
-        _hasMoreApplicants = page.hasMore;
-        _loadingRecruiterApplicants = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _recruiterApplicantsError = error.toString();
-        _loadingRecruiterApplicants = false;
-      });
-    }
+    await _applicants.load();
   }
 
   Future<void> _loadMoreApplicants() async {
-    if (_loadingMoreApplicants || !_hasMoreApplicants) return;
-
-    setState(() => _loadingMoreApplicants = true);
-
     try {
-      final page = await _recruiterService.fetchApplicants(
-        jobId: _applicantJobFilter,
-        status: _applicantStatusFilter,
-        limit: _applicantsPageSize,
-        offset: _recruiterApplicants.length,
-      );
-      if (!mounted) return;
-      setState(() {
-        _recruiterApplicants = [..._recruiterApplicants, ...page.applicants];
-        _applicantsTotal = page.total;
-        _hasMoreApplicants = page.hasMore;
-        _loadingMoreApplicants = false;
-      });
+      await _applicants.loadMore();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _loadingMoreApplicants = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal memuat pelamar berikutnya: $error')),
       );
@@ -334,40 +257,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _setApplicantJobFilter(int? jobId) async {
-    if (_applicantJobFilter == jobId) return;
-    setState(() => _applicantJobFilter = jobId);
-    await _loadRecruiterApplicants();
+    await _applicants.setJobFilter(jobId);
   }
 
   Future<void> _setApplicantStatusFilter(String? status) async {
-    if (_applicantStatusFilter == status) return;
-    setState(() => _applicantStatusFilter = status);
-    await _loadRecruiterApplicants();
+    await _applicants.setStatusFilter(status);
   }
 
   Future<void> _updateApplicationStatus(
     RecruiterApplicantModel applicant,
     String status,
   ) async {
-    if (_updatingApplicationId != null) return;
-
-    setState(() => _updatingApplicationId = applicant.id);
+    if (_applicants.updatingId != null) return;
 
     try {
-      final updated = await _recruiterService.updateStatus(
-        applicationId: applicant.id,
-        status: status,
-      );
-
+      final updated = await _applicants.updateStatus(applicant, status);
       if (!mounted) return;
-
-      setState(() {
-        _recruiterApplicants = [
-          for (final item in _recruiterApplicants)
-            if (item.id == updated.id) updated else item,
-        ];
-        _updatingApplicationId = null;
-      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -381,7 +286,6 @@ class _HomePageState extends State<HomePage> {
       await _loadRecruiterDashboard();
     } catch (error) {
       if (!mounted) return;
-      setState(() => _updatingApplicationId = null);
 
       final message = error is ApiException ? error.message : error.toString();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -391,11 +295,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openApplicantsForJob(RecruiterJobStats job) async {
-    setState(() {
-      _applicantJobFilter = job.id;
-      _applicantStatusFilter = null;
-      _currentIndex = 2;
-    });
+    _applicants.applyFilters(jobId: job.id);
+    setState(() => _currentIndex = 2);
     await _loadRecruiterApplicants();
   }
 
@@ -407,231 +308,19 @@ class _HomePageState extends State<HomePage> {
         _loadRecruiterDashboard(),
         _loadRecruiterApplicants(),
       ],
-      if (_notificationsOpened) _loadNotifications() else _refreshUnreadCount(),
     ]);
-  }
-
-  Future<void> _loadNotifications() async {
-    if (mounted) {
-      setState(() {
-        _notificationsOpened = true;
-        _loadingNotifications = true;
-        _notificationsError = null;
-      });
-    }
-
-    try {
-      final page = await _notificationService.fetchNotifications(
-        limit: _notificationsPageSize,
-        offset: 0,
-      );
-      if (!mounted) return;
-      setState(() {
-        _notifications = page.notifications;
-        _unreadNotifications = page.unread;
-        _hasMoreNotifications = page.hasMore;
-        _loadingNotifications = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _notificationsError = error.toString();
-        _loadingNotifications = false;
-      });
-    }
-  }
-
-  Future<void> _refreshUnreadCount() async {
-    try {
-      final unread = await _notificationService.fetchUnreadCount();
-      if (!mounted) return;
-      setState(() => _unreadNotifications = unread);
-    } catch (_) {}
-  }
-
-  Future<void> _loadMoreNotifications() async {
-    if (_loadingMoreNotifications || !_hasMoreNotifications) return;
-
-    setState(() => _loadingMoreNotifications = true);
-
-    try {
-      final page = await _notificationService.fetchNotifications(
-        limit: _notificationsPageSize,
-        offset: _notifications.length,
-      );
-      if (!mounted) return;
-      setState(() {
-        _notifications = [..._notifications, ...page.notifications];
-        _unreadNotifications = page.unread;
-        _hasMoreNotifications = page.hasMore;
-        _loadingMoreNotifications = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _loadingMoreNotifications = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal memuat notifikasi berikutnya: $error')),
-      );
-    }
-  }
-
-  Future<void> _markNotificationRead(NotificationModel notification) async {
-    if (notification.isRead || _updatingNotificationId != null) return;
-
-    setState(() => _updatingNotificationId = notification.id);
-
-    try {
-      final updated = await _notificationService.markRead(notification.id);
-      if (!mounted) return;
-      setState(() {
-        _notifications = [
-          for (final item in _notifications)
-            if (item.id == updated.id) updated else item,
-        ];
-        _updatingNotificationId = null;
-      });
-
-      await _refreshUnreadCount();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _updatingNotificationId = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menandai notifikasi: $error')),
-      );
-    }
-  }
-
-  Future<void> _markAllNotificationsRead() async {
-    if (_markingAllRead || _unreadNotifications == 0) return;
-
-    setState(() => _markingAllRead = true);
-
-    try {
-      await _notificationService.markAllRead();
-      if (!mounted) return;
-      setState(() {
-        _notifications = _notifications
-            .map((item) => item.isRead ? item : item.copyAsRead())
-            .toList();
-        _unreadNotifications = 0;
-        _markingAllRead = false;
-      });
-
-      await _refreshUnreadCount();
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _markingAllRead = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menandai semua notifikasi: $error')),
-      );
-    }
-  }
-
-  void _openNotification(NotificationModel notification) {
-    if (!notification.isRead) {
-      _markNotificationRead(notification);
-    }
-
-    final isRecruiter = _user?.role == 'recruiter';
-
-    if (isRecruiter) {
-      setState(() {
-        _applicantJobFilter = notification.jobId;
-        _applicantStatusFilter = null;
-        _currentIndex = 2;
-      });
-      _loadRecruiterApplicants();
-      return;
-    }
-
-    setState(() => _currentIndex = 2);
-  }
-
-  void _openNotificationsTab() {
-    setState(() => _currentIndex = _notificationsTabIndex);
-    _loadNotifications();
-  }
-
-  Widget _notificationsView() {
-    if (!_notificationsOpened) return const SizedBox.shrink();
-
-    return NotificationsPage(
-      notifications: _notifications,
-      unread: _unreadNotifications,
-      loading: _loadingNotifications,
-      error: _notificationsError,
-      onRefresh: _loadNotifications,
-      onMarkRead: _markNotificationRead,
-      onMarkAllRead: _markAllNotificationsRead,
-      onOpenNotification: _openNotification,
-      markingAllRead: _markingAllRead,
-      updatingId: _updatingNotificationId,
-      hasMore: _hasMoreNotifications,
-      loadingMore: _loadingMoreNotifications,
-      onLoadMore: _loadMoreNotifications,
-    );
-  }
-
-  Widget _notificationBell() {
-    final unread = _unreadNotifications;
-
-    return IconButton(
-      key: const Key('home-notifications-button'),
-      tooltip: unread > 0 ? '$unread notifikasi belum dibaca' : 'Notifikasi',
-      onPressed: null,
-      icon: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          const Icon(Icons.notifications_none),
-          if (unread > 0)
-            Positioned(
-              right: -4,
-              top: -4,
-              child: Container(
-                key: const Key('home-notifications-badge'),
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                constraints: const BoxConstraints(minWidth: 17),
-                decoration: BoxDecoration(
-                  color: JobTrackColors.danger,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: JobTrackColors.background,
-                    width: 1.5,
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  unread > 99 ? '99+' : '$unread',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    height: 1.3,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 
   void _selectTab(int index) {
     if (_currentIndex == index) return;
     setState(() => _currentIndex = index);
-
-    if (index == _notificationsTabIndex) {
-      _loadNotifications();
-    }
   }
 
   void _openJob(JobModel job) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => JobDetailPage(
-          job: job,
-          onApplied: () => _loadApplications(),
-        ),
+        builder: (_) =>
+            JobDetailPage(job: job, onApplied: () => _loadApplications()),
       ),
     );
   }
@@ -797,178 +486,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _accountMenu() {
-    return PopupMenuButton<String>(
-      key: const Key('home-account-menu'),
-      tooltip: 'Menu akun',
-      onSelected: (value) {
-        if (value == 'logout') _confirmLogout();
-      },
-      icon: const Icon(Icons.account_circle_outlined),
-      itemBuilder: (context) => [
-        PopupMenuItem<String>(
-          enabled: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _user?.username ?? 'Pengguna',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: JobTrackColors.navy,
-                ),
-              ),
-              if (_user?.email.isNotEmpty ?? false)
-                Text(
-                  _user!.email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: JobTrackColors.navyMuted,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem<String>(
-          value: 'logout',
-          child: Row(
-            children: [
-              Icon(Icons.logout, size: 20, color: JobTrackColors.navy),
-              SizedBox(width: 10),
-              Text('Keluar', style: TextStyle(color: JobTrackColors.navy)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  static const _jobseekerTitles = <String>[
-    'Dashboard',
-    'Lowongan',
-    'Lamaran',
-    'Tersimpan',
-    'Profil',
-  ];
-
-  static const _recruiterTitles = <String>[
-    'Dashboard',
-    'Lowongan',
-    'Pelamar',
-    'Profil',
-  ];
-
-  static const _jobseekerRailDestinations = <NavigationRailDestination>[
-    NavigationRailDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home),
-      label: Text('Beranda'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.work_outline),
-      selectedIcon: Icon(Icons.work),
-      label: Text('Lowongan'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.assignment_outlined),
-      selectedIcon: Icon(Icons.assignment),
-      label: Text('Lamaran'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.bookmark_border),
-      selectedIcon: Icon(Icons.bookmark),
-      label: Text('Tersimpan'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.person_outline),
-      selectedIcon: Icon(Icons.person),
-      label: Text('Profil'),
-    ),
-
-  ];
-
-  static const _recruiterRailDestinations = <NavigationRailDestination>[
-    NavigationRailDestination(
-      icon: Icon(Icons.dashboard_outlined),
-      selectedIcon: Icon(Icons.dashboard),
-      label: Text('Dashboard'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.work_outline),
-      selectedIcon: Icon(Icons.work),
-      label: Text('Lowongan'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.people_outline),
-      selectedIcon: Icon(Icons.people),
-      label: Text('Pelamar'),
-    ),
-    NavigationRailDestination(
-      icon: Icon(Icons.person_outline),
-      selectedIcon: Icon(Icons.person),
-      label: Text('Profil'),
-    ),
-
-  ];
-
-  static const _jobseekerBottomItems = <BottomNavigationBarItem>[
-    BottomNavigationBarItem(
-      icon: Icon(Icons.home_outlined),
-      activeIcon: Icon(Icons.home),
-      label: 'Beranda',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.work_outline),
-      activeIcon: Icon(Icons.work),
-      label: 'Lowongan',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.assignment_outlined),
-      activeIcon: Icon(Icons.assignment),
-      label: 'Lamaran',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.bookmark_border),
-      activeIcon: Icon(Icons.bookmark),
-      label: 'Tersimpan',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.person_outline),
-      activeIcon: Icon(Icons.person),
-      label: 'Profil',
-    ),
-
-  ];
-
-  static const _recruiterBottomItems = <BottomNavigationBarItem>[
-    BottomNavigationBarItem(
-      icon: Icon(Icons.dashboard_outlined),
-      activeIcon: Icon(Icons.dashboard),
-      label: 'Dashboard',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.work_outline),
-      activeIcon: Icon(Icons.work),
-      label: 'Lowongan',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.people_outline),
-      activeIcon: Icon(Icons.people),
-      label: 'Pelamar',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.person_outline),
-      activeIcon: Icon(Icons.person),
-      label: 'Profil',
-    ),
-
-  ];
-
   @override
   Widget build(BuildContext context) {
     if (_loadingUser && _user == null) {
@@ -1002,24 +519,24 @@ class _HomePageState extends State<HomePage> {
               onDeleteJob: _deleteJob,
             ),
             RecruiterApplicantsPage(
-              applicants: _recruiterApplicants,
-              loading: _loadingRecruiterApplicants,
-              error: _recruiterApplicantsError,
+              applicants: _applicants.applicants,
+              loading: _applicants.loading,
+              error: _applicants.error,
               onRefresh: _refreshDashboard,
               applicationService: widget.applicationService,
               jobs: _recruiterDashboard?.jobs ?? const [],
-              selectedJobId: _applicantJobFilter,
+              selectedJobId: _applicants.jobFilter,
               onJobFilterChanged: _setApplicantJobFilter,
-              selectedStatus: _applicantStatusFilter,
+              selectedStatus: _applicants.statusFilter,
               onStatusFilterChanged: _setApplicantStatusFilter,
               onUpdateStatus: _updateApplicationStatus,
-              updatingApplicationId: _updatingApplicationId,
-              total: _applicantsTotal,
-              hasMore: _hasMoreApplicants,
+              updatingApplicationId: _applicants.updatingId,
+              total: _applicants.total,
+              hasMore: _applicants.hasMore,
               onLoadMore: _loadMoreApplicants,
-              loadingMore: _loadingMoreApplicants,
+              loadingMore: _applicants.loadingMore,
             ),
-
+            ProfilePage(user: _user, onLogout: _confirmLogout),
           ]
         : <Widget>[
             HomeTab(
@@ -1053,16 +570,18 @@ class _HomePageState extends State<HomePage> {
               applicationService: widget.applicationService,
             ),
             const SavedJobsPage(),
-
+            ProfilePage(user: _user, onLogout: _confirmLogout),
           ];
 
-    final titles = isRecruiter ? _recruiterTitles : _jobseekerTitles;
-    final railDestinations = isRecruiter
-        ? _recruiterRailDestinations
-        : _jobseekerRailDestinations;
+    final titles = isRecruiter
+        ? HomeNavigation.recruiterTitles
+        : HomeNavigation.jobseekerTitles;
     final bottomItems = isRecruiter
-        ? _recruiterBottomItems
-        : _jobseekerBottomItems;
+        ? HomeNavigation.recruiterBottomItems
+        : HomeNavigation.jobseekerBottomItems;
+    final railDestinations = isRecruiter
+        ? HomeNavigation.recruiterRailDestinations
+        : HomeNavigation.jobseekerRailDestinations;
     final maxIndex = pages.length - 1;
     final currentIndex = _currentIndex > maxIndex ? maxIndex : _currentIndex;
 
@@ -1073,134 +592,133 @@ class _HomePageState extends State<HomePage> {
         final content = IndexedStack(index: currentIndex, children: pages);
 
         final scaffold = Scaffold(
-          backgroundColor: JobTrackColors.background,
-          appBar: AppBar(
-            backgroundColor: JobTrackColors.surface,
-            surfaceTintColor: Colors.transparent,
-            scrolledUnderElevation: 0,
-            elevation: 0,
-            foregroundColor: JobTrackColors.navy,
-            centerTitle: false,
-            titleSpacing: 16,
-            shape: const Border(
-              bottom: BorderSide(color: JobTrackColors.border),
-            ),
-            title: currentIndex == 0
-                ? (isWide ? null : const JobTrackBrand(logoSize: 30))
-                : Text(
-                    titles[currentIndex],
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: JobTrackColors.navy,
-                    ),
-                  ),
-            actions: [
-              if (currentIndex != _notificationsTabIndex) _notificationBell(),
-              _accountMenu(),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: content,
-          bottomNavigationBar: isWide
-              ? null
-              : BottomNavigationBar(
-                  type: BottomNavigationBarType.fixed,
-                  currentIndex: currentIndex,
-                  onTap: _selectTab,
-                  selectedItemColor: JobTrackColors.blue,
-                  unselectedItemColor: JobTrackColors.navyMuted,
-                  backgroundColor: JobTrackColors.surface,
-                  showUnselectedLabels: true,
-                  items: bottomItems,
+      backgroundColor: JobTrackColors.background,
+      appBar: AppBar(
+        backgroundColor: JobTrackColors.surface,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        foregroundColor: JobTrackColors.navy,
+        centerTitle: false,
+        titleSpacing: 16,
+        shape: const Border(
+          bottom: BorderSide(color: JobTrackColors.border),
+        ),
+        title: currentIndex == 0
+            ? (isWide ? null : const JobTrackBrand(logoSize: 30))
+            : Text(
+                titles[currentIndex],
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: JobTrackColors.navy,
                 ),
-        );
+              ),
+        actions: [
+          HomeAccountMenu(user: _user, onLogout: _confirmLogout),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: content,
+      bottomNavigationBar: isWide
+          ? null
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              currentIndex: currentIndex,
+              onTap: _selectTab,
+              selectedItemColor: JobTrackColors.blue,
+              unselectedItemColor: JobTrackColors.navyMuted,
+              backgroundColor: JobTrackColors.surface,
+              showUnselectedLabels: true,
+              items: bottomItems,
+            ),
+    );
 
         return ColoredBox(
-          color: JobTrackColors.surface,
-          child: SafeArea(
-            top: isWide,
-            left: isWide,
-            right: isWide,
-            bottom: false,
-            child: Row(
-              children: [
-                if (isWide) ...[
-                  SizedBox(
-                    width: isExtended ? 220 : 76,
-                    child: Material(
-                      color: JobTrackColors.surface,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              isExtended ? 16 : 0,
-                              12,
-                              isExtended ? 16 : 0,
-                              24,
-                            ),
-                            child: SizedBox(
-                              height: 36,
-                              child: isExtended
-                                  ? const Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: JobTrackBrand(logoSize: 30),
-                                    )
-                                  : const Center(
-                                      child: JobTrackBrand(
-                                        logoSize: 34,
-                                        showText: false,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                          Expanded(
-                            child: NavigationRail(
-                              extended: isExtended,
-                              labelType: isExtended
-                                  ? NavigationRailLabelType.none
-                                  : NavigationRailLabelType.all,
-                              minWidth: 76,
-                              minExtendedWidth: 220,
-                              backgroundColor: JobTrackColors.surface,
-                              indicatorColor: JobTrackColors.blueSoft,
-                              selectedIconTheme: const IconThemeData(
-                                color: JobTrackColors.blue,
-                              ),
-                              unselectedIconTheme: const IconThemeData(
-                                color: JobTrackColors.navyMuted,
-                              ),
-                              selectedLabelTextStyle: const TextStyle(
-                                color: JobTrackColors.blue,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              unselectedLabelTextStyle: const TextStyle(
-                                color: JobTrackColors.navyMuted,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              selectedIndex: currentIndex,
-                              onDestinationSelected: _selectTab,
-                              destinations: railDestinations,
-                            ),
-                          ),
-                        ],
+      color: JobTrackColors.surface,
+      child: SafeArea(
+        top: isWide,
+        left: isWide,
+        right: isWide,
+        bottom: false,
+        child: Row(
+          children: [
+            if (isWide) ...[
+              SizedBox(
+                width: isExtended ? 220 : 76,
+                child: Material(
+                  color: JobTrackColors.surface,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          isExtended ? 16 : 0,
+                          12,
+                          isExtended ? 16 : 0,
+                          24,
+                        ),
+                        child: SizedBox(
+                          height: 36,
+                          child: isExtended
+                              ? const Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: JobTrackBrand(logoSize: 30),
+                                )
+                              : const Center(
+                                  child: JobTrackBrand(
+                                    logoSize: 34,
+                                    showText: false,
+                                  ),
+                                ),
+                        ),
                       ),
-                    ),
+                      Expanded(
+                        child: NavigationRail(
+                          extended: isExtended,
+                          labelType: isExtended
+                              ? NavigationRailLabelType.none
+                              : NavigationRailLabelType.all,
+                          minWidth: 76,
+                          minExtendedWidth: 220,
+                          backgroundColor: JobTrackColors.surface,
+                          indicatorColor: JobTrackColors.blueSoft,
+                          selectedIconTheme: const IconThemeData(
+                            color: JobTrackColors.blue,
+                          ),
+                          unselectedIconTheme: const IconThemeData(
+                            color: JobTrackColors.navyMuted,
+                          ),
+                          selectedLabelTextStyle: const TextStyle(
+                            color: JobTrackColors.blue,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          unselectedLabelTextStyle: const TextStyle(
+                            color: JobTrackColors.navyMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          selectedIndex: currentIndex,
+                          onDestinationSelected: _selectTab,
+                          destinations: railDestinations,
+                        ),
+                      ),
+                    ],
                   ),
-                  const VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color: JobTrackColors.border,
-                  ),
-                ],
-                Expanded(
-                  key: const ValueKey('home-main-area'),
-                  child: scaffold,
                 ),
-              ],
+              ),
+              const VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: JobTrackColors.border,
+              ),
+            ],
+            Expanded(
+              key: const ValueKey('home-main-area'),
+              child: scaffold,
             ),
-          ),
-        );
+          ],
+        ),
+      ),
+    );
       },
     );
   }

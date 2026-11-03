@@ -7,7 +7,7 @@ import '../services/application_service.dart';
 import '../theme/jobtrack_theme.dart';
 import '../widgets/application_widgets.dart';
 import '../utils/open_url.dart';
-import '../widgets/excel_export_button.dart';
+
 
 class RecruiterApplicantsPage extends StatelessWidget {
   const RecruiterApplicantsPage({
@@ -17,7 +17,6 @@ class RecruiterApplicantsPage extends StatelessWidget {
     required this.error,
     required this.onRefresh,
     this.applicationService,
-    this.downloadHandler,
     this.jobs = const [],
     this.selectedJobId,
     this.onJobFilterChanged,
@@ -37,7 +36,6 @@ class RecruiterApplicantsPage extends StatelessWidget {
   final String? error;
   final Future<void> Function() onRefresh;
   final ApplicationService? applicationService;
-  final ReportDownloadHandler? downloadHandler;
 
   final List<RecruiterJobStats> jobs;
 
@@ -136,8 +134,6 @@ class RecruiterApplicantsPage extends StatelessWidget {
                       const SizedBox(height: 12),
                       LayoutBuilder(
                         builder: (context, constraints) {
-                          final compact = constraints.maxWidth < 520;
-
                           return Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -150,24 +146,6 @@ class RecruiterApplicantsPage extends StatelessWidget {
                                   onStatusFilterChanged: onStatusFilterChanged,
                                   enabled: !loading,
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              ExcelExportButton(
-                                buttonKey: const Key('recruiter-export-button'),
-                                compact: compact,
-                                enabled:
-                                    !loading &&
-                                    error == null &&
-                                    applicants.isNotEmpty,
-                                onExport: () =>
-                                    (applicationService ?? ApplicationService())
-                                        .exportRecruiterApplicants(),
-                                downloadHandler: downloadHandler,
-                                successMessage:
-                                    'Laporan pelamar berhasil diunduh.',
-                                disabledMessage: loading
-                                    ? 'Tunggu data pelamar selesai dimuat.'
-                                    : 'Belum ada pelamar untuk diekspor.',
                               ),
                             ],
                           );
