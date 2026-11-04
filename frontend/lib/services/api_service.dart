@@ -31,13 +31,21 @@ class ApiDownload {
 }
 
 class ApiService {
-  static const String _defaultBaseUrl = 'http://localhost:3000/api';
+  static const String defaultBaseUrl = 'http://localhost:3000/api';
+
+  /// Origin server (tanpa path `/api`), dipakai misalnya untuk Socket.IO.
+  static String get defaultOrigin {
+    var url = defaultBaseUrl;
+    if (url.endsWith('/api/')) return url.substring(0, url.length - 5);
+    if (url.endsWith('/api')) return url.substring(0, url.length - 4);
+    return url;
+  }
 
   static const String _tokenKey = 'auth_token';
 
   final String _baseUrl;
 
-  ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? _defaultBaseUrl;
+  ApiService({String? baseUrl}) : _baseUrl = baseUrl ?? defaultBaseUrl;
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();

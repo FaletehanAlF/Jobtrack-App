@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../controllers/notification_controller.dart';
 import '../controllers/recruiter_applicants_controller.dart';
 import '../models/application_model.dart';
 import '../models/job_model.dart';
+import '../models/notification_model.dart';
 import '../models/recruiter_model.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -13,12 +17,14 @@ import '../services/recruiter_service.dart';
 import '../theme/jobtrack_theme.dart';
 import '../widgets/home_account_menu.dart';
 import '../widgets/jobtrack_brand.dart';
+import '../widgets/notification_bell.dart';
 import 'applications_page.dart';
 import 'home_navigation.dart';
 import 'home_tab.dart';
 import 'job_form_page.dart';
 import 'jobs_page.dart';
 import 'login_page.dart';
+import 'notifications_page.dart';
 import 'profile_page.dart';
 import 'recruiter_applicants_page.dart';
 import 'recruiter_dashboard_page.dart';
@@ -32,6 +38,7 @@ class HomePage extends StatefulWidget {
     this.applicationService,
     this.authService,
     this.recruiterService,
+    this.notificationController,
   });
 
   final UserModel? user;
@@ -44,6 +51,8 @@ class HomePage extends StatefulWidget {
 
   final RecruiterService? recruiterService;
 
+  final NotificationController? notificationController;
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -54,6 +63,9 @@ class _HomePageState extends State<HomePage> {
       widget.recruiterService ?? RecruiterService();
   late final RecruiterApplicantsController _applicants =
       RecruiterApplicantsController(service: _recruiterService);
+  late final NotificationController _notifications =
+      widget.notificationController ?? NotificationController();
+  bool _notificationsStarted = false;
 
   UserModel? _user;
   bool _loadingUser = true;
@@ -77,6 +89,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _user = widget.user;
     _applicants.addListener(_onControllerChanged);
+    _notifications.addListener(_onNotificationsChanged);
     _loadUser();
     _loadJobs();
   }
@@ -86,11 +99,51 @@ class _HomePageState extends State<HomePage> {
     _applicants
       ..removeListener(_onControllerChanged)
       ..dispose();
+    _notifications
+      ..removeListener(_onNotificationsChanged)
+      ..dispose();
     super.dispose();
   }
 
   void _onControllerChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onNotificationsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _startNotifications() {
+    if (_notificationsStarted) return;
+    _notificationsStarted = true;
+
+    _notifications.onNewNotification = _onRealtimeNotification;
+    unawaited(_notifications.start());
+  }
+
+  void _onRealtimeNotification(NotificationModel notification) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(notification.message),
+        action: SnackBarAction(
+          label: 'Lihat',
+          onPressed: _openNotifications,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(controller: _notifications),
+      ),
+    );
+
+    if (!mounted) return;
+    await _notifications.refreshUnreadCount();
   }
 
   Future<void> _loadJobs() async {
@@ -147,6 +200,7 @@ class _HomePageState extends State<HomePage> {
       _user = user;
       _loadingUser = false;
     });
+    _startNotifications();
 
     if (user.role == 'jobseeker') {
       await _loadApplications();
@@ -607,6 +661,10 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
         actions: [
+          NotificationBell(
+            unreadCount: _notifications.unreadCount,
+            onTap: _openNotifications,
+          ),
           HomeAccountMenu(user: _user, onLogout: _confirmLogout),
           const SizedBox(width: 8),
         ],
