@@ -6,8 +6,6 @@ import os from "node:os";
 import path from "node:path";
 import type { Request } from "express";
 
-// Spell database dulu: modul ini memanggil dotenv.config(), sehingga env
-// (CLOUDINARY_*, JWT_SECRET*) sudah terisi sebelum config Cloudinary dievaluasi.
 import { db } from "../config/database.js";
 import { cloudinaryClient } from "../config/cloudinary.js";
 import { createApplication } from "../controllers/application.controller.js";
@@ -16,7 +14,6 @@ import { callController, makeReq, stubPoolQuery } from "./helpers.js";
 
 type ApplyRequest = Omit<Request, "file"> & { file?: { path: string; size: number } };
 
-/** Baris lamaran yang "tersimpan" untuk kasus sukses. */
 const savedApplication = {
   id: 88,
   applicant_id: 5,
@@ -29,14 +26,9 @@ const savedApplication = {
 interface DbScenario {
   jobExists?: boolean;
   insertId?: number;
-  /** Error yang dilempar INSERT job_applications, meniru mysql2 reject. */
   insertError?: { code: string };
 }
 
-/**
- * Stub pool.query untuk seluruh skema query yang dipakai createApplication.
- * Mengembalikan fungsi restore.
- */
 function stubApplicationDb(scenario: DbScenario = {}) {
   let insertedParams: unknown[] | null = null;
   let notificationInserted = false;

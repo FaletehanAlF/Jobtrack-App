@@ -37,8 +37,6 @@ export function ensureCloudinaryConfigured(): boolean {
   return true;
 }
 
-// Terapkan konfigurasi saat modul dimuat bila tersedia. Bila tidak tersedia,
-// pemanggil (controller) akan menolak permintaan CV dengan respons aman.
 ensureCloudinaryConfigured();
 
 export const cloudinaryClient = cloudinary;

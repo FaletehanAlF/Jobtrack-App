@@ -26,9 +26,6 @@ function stubDbQuery(
   const originalQuery = pool.query;
   const originalGetConnection = pool.getConnection;
   const captured: CapturedQuery[] = [];
-
-  // Query dari transaksi (connection.query) dan pool (db.query) dicatat lewat
-  // jalur yang sama supaya tes tetap berjalan tanpa database sungguhan.
   const queryFn = (sql: string, params?: unknown[]) => {
     captured.push({ sql, params: params ?? [] });
     return handler(sql, params);
@@ -391,7 +388,7 @@ describe("PATCH /api/recruiter/applicants/:id/status", () => {
         error.code = "ER_DUP_ENTRY";
         throw error;
       }
-      return [[], []];
+      return [[{ ...applicantRow, status: "submitted" }], []];
     });
 
     try {

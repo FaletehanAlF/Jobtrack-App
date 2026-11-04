@@ -1,11 +1,6 @@
 import writeExcelFile from "write-excel-file/node";
 import type { Cell, SheetData } from "write-excel-file/node";
 
-/**
- * Laporan Excel dibuat di backend supaya baris yang diekspor sudah difilter
- * berdasarkan identitas JWT dan kepemilikan lowongan. Frontend hanya menerima
- * byte .xlsx yang sudah diotorisasi.
- */
 export const EXCEL_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -108,11 +103,6 @@ async function buildWorkbook(
   }).toBuffer();
 }
 
-/**
- * Laporan riwayat lamaran jobseeker. Kolom hanya berisi data yang memang
- * tersedia di tabel jobs/job_applications dan tidak menyertakan data pribadi
- * seperti password, token, atau email.
- */
 export async function buildJobseekerApplicationsReport(
   rows: JobseekerReportRow[],
 ): Promise<Buffer> {
@@ -142,11 +132,6 @@ export async function buildJobseekerApplicationsReport(
   return buildWorkbook("Lamaran", [6, 32, 24, 22, 16, 17], data);
 }
 
-/**
- * Laporan pelamar untuk recruiter. Pemanggil wajib sudah memfilter baris
- * dengan `jobs.recruiter_id` dari token; laporan ini tidak menambah data
- * pelamar selain username yang memang dikirim endpoint daftar pelamar.
- */
 export async function buildRecruiterApplicantsReport(
   rows: RecruiterReportRow[],
 ): Promise<Buffer> {

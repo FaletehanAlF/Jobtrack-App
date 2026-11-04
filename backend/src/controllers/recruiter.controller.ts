@@ -11,13 +11,9 @@ import {
 } from "../config/cloudinary.js";
 import { CV_MAX_SIZE_BYTES } from "../config/middleware/upload.middleware.js";
 
-/** Tujuan token akses CV supaya tidak bisa dipakai lewat endpoint login. */
 const CV_STREAM_TOKEN_PURPOSE = "cv-stream";
-/** Umur URL akses CV (detik) — berhasil dibuat lalu terpakai segera. */
 const CV_URL_TTL_SECONDS = 300;
-/** Umur URL unduh sementara Cloudinary yang hanya dipakai backend (detik). */
 const CV_FETCH_TTL_SECONDS = 120;
-/** Batas waktu backend mengambil file dari Cloudinary (milidetik). */
 const CV_FETCH_TIMEOUT_MS = 15_000;
 import {
   applicationIdSchema,

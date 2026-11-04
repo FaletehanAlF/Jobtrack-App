@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import jwt from "jsonwebtoken";
 import type { Request } from "express";
 
-// Import database dulu agar dotenv.config() sudah berjalan sebelum modul yang
-// butuh env (Cloudinary, JWT) dievaluasi.
 import { db } from "../config/database.js";
 import {
   getRecruiterApplicantCv,
@@ -18,8 +16,6 @@ import {
   stubPoolQuery,
 } from "./helpers.js";
 
-// JWT_SECRET dibutuhkan controller untuk menandatangani token akses CV.
-// Nilai dari .env tetap dipertahankan jika sudah ada.
 process.env.JWT_SECRET ||= "jwt-secret-khusus-pengujian-cv";
 
 const JWT_SECRET = process.env.JWT_SECRET;

@@ -7,21 +7,6 @@ export type NotificationType =
 
 type Queryable = Pool | PoolConnection;
 
-/**
- * Membuat satu notifikasi bila belum ada untuk kejadian yang sama.
- *
- * `INSERT IGNORE` dipakai alih-alih `INSERT ... ON DUPLICATE KEY UPDATE`
- * supaya baris yang sudah ada tidak tersentuh sama sekali — termasuk
- * read_at, sehingga notifikasi yang sudah dibaca sebelumnya tidak muncul
- * lagi sebagai belum dibaca hanya karena kejadiannya terulang.
- *
- * Unik-nya dijaga `uq_notification_event (recipient_id, type, application_id)`
- * di database, jadi dua request bersamaan tidak bisa menghasilkan dua baris.
- *
- * Dipanggil HANYA setelah perubahan data berhasil, dan sedapat mungkin di
- * dalam transaksi yang sama, sehingga tidak ada notifikasi untuk perubahan
- * yang gagal tersimpan.
- */
 export async function createNotification(
   db: Queryable,
   notification: {
@@ -46,12 +31,6 @@ export async function createNotification(
   );
 }
 
-/**
- * Membuat notifikasi ke recruiter pemilik lowongan saat ada lamaran baru.
- *
- * Pemilik lowongan dibaca dari database berdasarkan `job_id`, bukan dari
- * request, sehingga notifikasi tidak bisa diarahkan ke recruiter lain.
- */
 export async function notifyApplicationReceived(
   db: Queryable,
   params: {
@@ -78,12 +57,6 @@ export async function notifyApplicationReceived(
   });
 }
 
-/**
- * Membuat notifikasi ke pelamar saat lamarannya berubah status.
- *
- * Hanya dipanggil ketika status benar-benar berubah, sehingga penolakan
- * berulang atas lamaran yang sama tidak menghasilkan notifikasi baru.
- */
 export async function notifyStatusChanged(
   db: Queryable,
   params: {

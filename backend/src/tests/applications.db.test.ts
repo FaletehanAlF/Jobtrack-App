@@ -16,58 +16,11 @@ import {
 } from "../controllers/application.controller.js";
 import { callController, makeReq } from "./helpers.js";
 
-/**
- * ==========================================================================
- * Pengaman fail-closed untuk pengujian yang menulis data ke database
- * ==========================================================================
- * Pengujian ini membuat dan menghapus baris, jadi tidak pernah dijalankan
- * otomatis. Semua syarat berikut HARUS terpenuhi; jika salah satu gagal,
- * seluruh kasus dilewati dan TIDAK ADA satu pun query tulis yang dijalankan:
- *
- *   1. RUN_DB_TESTS=1 — pengujian tulis diaktifkan secara sadar.
- *
- *   2. DB_NAME_TESTS=<nama> — nama database test yang diizinkan secara
- *      eksplisit, mis. salinan schema seperti jobtrack_test.
- *      RUN_DB_TESTS saja tidak cukup untuk mengizinkan penulisan.
- *
- *   3. DB_NAME_TESTS berbeda dari DB_NAME di backend/.env — database
- *      development tidak diizinkan menjadi target tes meskipun disebut
- *      secara eksplisit. Nilai DB_NAME dari .env hanya untuk perbandingan
- *      dan tidak pernah dicetak ke log.
- *
- *   4. Nama database yang benar-benar terhubung diverifikasi lewat
- *      SELECT DATABASE() pada pool yang sama dengan yang dipakai controller
- *      (config/database.ts), dan HARUS sama dengan DB_NAME_TESTS.
- *      Karena controller memakai pool yang dikonfigurasi dari DB_NAME,
- *      jalankan tes dengan DB_NAME proses diarahkan ke database test:
- *
- *        # PowerShell
- *        $env:RUN_DB_TESTS  = "1"
- *        $env:DB_NAME_TESTS = "jobtrack_test"
- *        $env:DB_NAME       = "jobtrack_test"
- *        npm run test:db
- *
- *      Verifikasi ini juga menarik ketidakpastian urutan pemuatan .env oleh
- *      tsx (injected env): sampai koneksi benar-benar menunjuk database test,
- *      pengujian tetap berhenti sebelum operasi tulis apa pun.
- * ==========================================================================
- */
 const RUN_DB_TESTS = process.env.RUN_DB_TESTS === "1";
 const TEST_DB_NAME = process.env.DB_NAME_TESTS;
 const TEST_EMAIL_DOMAIN = "@example.test";
 const TEST_USERNAME_PREFIX = "JTTEST";
 
-/**
- * Membaca DB_NAME dari isi file .env di direktori kerja (backend/.env ketika
- * dijalankan lewat npm) menggunakan parser dotenv yang sama dengan yang
- * dipakai config/database.ts. Dengan begitu komentar inline, tanda kutip,
- * prefix "export", dan aturan parsing dotenv lainnya diproses persis seperti
- * saat konfigurasi dimuat. Nilainya hanya dipakai untuk perbandingan dan
- * tidak pernah dicetak.
- *
- * Mengembalikan null bila .env tidak bisa dibaca, gagal diproses, atau tidak
- * berisi DB_NAME, supaya pemanggil dapat berperilaku fail-closed.
- */
 function getEnvFileDbName(): string | null {
   try {
     const content = readFileSync(resolve(process.cwd(), ".env"), "utf8");
@@ -84,12 +37,6 @@ function getEnvFileDbName(): string | null {
   }
 }
 
-/**
- * Identitas user tes yang berhasil dibuat. Pembersihan hanya menyasar baris
- * ini, dengan pencocokan berlapis (id + email unik + domain email tes +
- * awalan username + role). Jika salah satu INSERT gagal atau kepemilikan
- * tidak dapat dibuktikan, baris tersebut tetap tidak disentuh pembersihan.
- */
 interface TestUser {
   userId: number;
   email: string;
