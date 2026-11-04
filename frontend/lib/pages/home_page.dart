@@ -579,19 +579,12 @@ class _HomePageState extends State<HomePage> {
     final bottomItems = isRecruiter
         ? HomeNavigation.recruiterBottomItems
         : HomeNavigation.jobseekerBottomItems;
-    final railDestinations = isRecruiter
-        ? HomeNavigation.recruiterRailDestinations
-        : HomeNavigation.jobseekerRailDestinations;
     final maxIndex = pages.length - 1;
     final currentIndex = _currentIndex > maxIndex ? maxIndex : _currentIndex;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 900;
-        final isExtended = constraints.maxWidth >= 1200;
-        final content = IndexedStack(index: currentIndex, children: pages);
+    final content = IndexedStack(index: currentIndex, children: pages);
 
-        final scaffold = Scaffold(
+    return Scaffold(
       backgroundColor: JobTrackColors.background,
       appBar: AppBar(
         backgroundColor: JobTrackColors.surface,
@@ -605,7 +598,7 @@ class _HomePageState extends State<HomePage> {
           bottom: BorderSide(color: JobTrackColors.border),
         ),
         title: currentIndex == 0
-            ? (isWide ? null : const JobTrackBrand(logoSize: 30))
+            ? const JobTrackBrand(logoSize: 30)
             : Text(
                 titles[currentIndex],
                 style: const TextStyle(
@@ -619,107 +612,18 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: content,
-      bottomNavigationBar: isWide
-          ? null
-          : BottomNavigationBar(
-              type: BottomNavigationBarType.fixed,
-              currentIndex: currentIndex,
-              onTap: _selectTab,
-              selectedItemColor: JobTrackColors.blue,
-              unselectedItemColor: JobTrackColors.navyMuted,
-              backgroundColor: JobTrackColors.surface,
-              showUnselectedLabels: true,
-              items: bottomItems,
-            ),
-    );
-
-        return ColoredBox(
-      color: JobTrackColors.surface,
-      child: SafeArea(
-        top: isWide,
-        left: isWide,
-        right: isWide,
-        bottom: false,
-        child: Row(
-          children: [
-            if (isWide) ...[
-              SizedBox(
-                width: isExtended ? 220 : 76,
-                child: Material(
-                  color: JobTrackColors.surface,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          isExtended ? 16 : 0,
-                          12,
-                          isExtended ? 16 : 0,
-                          24,
-                        ),
-                        child: SizedBox(
-                          height: 36,
-                          child: isExtended
-                              ? const Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: JobTrackBrand(logoSize: 30),
-                                )
-                              : const Center(
-                                  child: JobTrackBrand(
-                                    logoSize: 34,
-                                    showText: false,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      Expanded(
-                        child: NavigationRail(
-                          extended: isExtended,
-                          labelType: isExtended
-                              ? NavigationRailLabelType.none
-                              : NavigationRailLabelType.all,
-                          minWidth: 76,
-                          minExtendedWidth: 220,
-                          backgroundColor: JobTrackColors.surface,
-                          indicatorColor: JobTrackColors.blueSoft,
-                          selectedIconTheme: const IconThemeData(
-                            color: JobTrackColors.blue,
-                          ),
-                          unselectedIconTheme: const IconThemeData(
-                            color: JobTrackColors.navyMuted,
-                          ),
-                          selectedLabelTextStyle: const TextStyle(
-                            color: JobTrackColors.blue,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          unselectedLabelTextStyle: const TextStyle(
-                            color: JobTrackColors.navyMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          selectedIndex: currentIndex,
-                          onDestinationSelected: _selectTab,
-                          destinations: railDestinations,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const VerticalDivider(
-                width: 1,
-                thickness: 1,
-                color: JobTrackColors.border,
-              ),
-            ],
-            Expanded(
-              key: const ValueKey('home-main-area'),
-              child: scaffold,
-            ),
-          ],
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: currentIndex,
+        onTap: _selectTab,
+        selectedItemColor: JobTrackColors.blue,
+        unselectedItemColor: JobTrackColors.navyMuted,
+        backgroundColor: JobTrackColors.surface,
+        showUnselectedLabels: true,
+        items: bottomItems,
       ),
     );
-      },
-    );
+  }
+}
   }
 }
