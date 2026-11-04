@@ -84,7 +84,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               padding:
                   const EdgeInsets.fromLTRB(16, 16, 16, 32),
               itemCount: controller.notifications.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final notification = controller.notifications[index];
 

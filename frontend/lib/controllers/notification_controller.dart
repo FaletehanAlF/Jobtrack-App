@@ -16,10 +16,9 @@ class NotificationController extends ChangeNotifier {
   NotificationController({
     NotificationService? notificationService,
     RealtimeService? realtimeService,
-    Duration pollInterval = const Duration(seconds: 45),
+    this._pollInterval = const Duration(seconds: 45),
   })  : _notificationService = notificationService ?? NotificationService(),
-        _realtimeService = realtimeService ?? RealtimeService(),
-        _pollInterval = pollInterval;
+        _realtimeService = realtimeService ?? RealtimeService();
 
   final NotificationService _notificationService;
   final RealtimeService _realtimeService;

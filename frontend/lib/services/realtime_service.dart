@@ -11,14 +11,14 @@ import 'api_service.dart';
 /// Koneksi memakai token JWT yang sama dengan REST API
 /// (`handshake.auth.token`) dan berlangganan event `notification`.
 class RealtimeService {
-  RealtimeService({String? socketUrl, String? baseUrl})
-      : _socketUrl = socketUrl,
-        _baseUrl = baseUrl;
+  /// [socketUrl] mengganti origin default (mis. untuk pengujian);
+  /// [baseUrl] base URL API bila [socketUrl] tidak diisi.
+  RealtimeService({this.socketUrl, this.baseUrl});
 
   static const String _tokenKey = 'auth_token';
 
-  final String? _socketUrl;
-  final String? _baseUrl;
+  final String? socketUrl;
+  final String? baseUrl;
 
   io.Socket? _socket;
   final StreamController<NotificationModel> _controller =
@@ -30,9 +30,10 @@ class RealtimeService {
   bool get isConnected => _socket?.connected ?? false;
 
   String _resolveUrl() {
-    if (_socketUrl != null) return _socketUrl!;
+    final explicit = socketUrl;
+    if (explicit != null) return explicit;
 
-    final base = _baseUrl ?? ApiService.defaultBaseUrl;
+    final base = baseUrl ?? ApiService.defaultBaseUrl;
 
     if (base.endsWith('/api/')) {
       return base.substring(0, base.length - 5);
@@ -96,19 +97,19 @@ class RealtimeService {
     }
   }
 
-  Future<void> disconnect() async {
+  void disconnect() {
     final socket = _socket;
     _socket = null;
 
     try {
-      await socket?.dispose();
+      socket?.dispose();
     } catch (_) {
       // Abaikan — socket mungkin sedang dalam status setengah terbuka.
     }
   }
 
   Future<void> dispose() async {
-    await disconnect();
+    disconnect();
 
     if (!_controller.isClosed) {
       await _controller.close();
