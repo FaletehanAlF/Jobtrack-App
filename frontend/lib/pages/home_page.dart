@@ -636,7 +636,38 @@ class _HomePageState extends State<HomePage> {
     final maxIndex = pages.length - 1;
     final currentIndex = _currentIndex > maxIndex ? maxIndex : _currentIndex;
 
+    final isWide = MediaQuery.sizeOf(context).width >= 900;
+
+    final railDestinations = isRecruiter
+        ? HomeNavigation.recruiterRailDestinations
+        : HomeNavigation.jobseekerRailDestinations;
+
     final content = IndexedStack(index: currentIndex, children: pages);
+
+    final body = isWide
+        ? Row(
+            children: [
+              NavigationRail(
+                selectedIndex: currentIndex,
+                onDestinationSelected: _selectTab,
+                labelType: NavigationRailLabelType.all,
+                destinations: railDestinations,
+                backgroundColor: JobTrackColors.surface,
+                selectedIconTheme: const IconThemeData(color: JobTrackColors.blue),
+                selectedLabelTextStyle: const TextStyle(
+                  color: JobTrackColors.blue,
+                  fontWeight: FontWeight.w700,
+                ),
+                unselectedIconTheme:
+                    const IconThemeData(color: JobTrackColors.navyMuted),
+                unselectedLabelTextStyle:
+                    const TextStyle(color: JobTrackColors.navyMuted),
+              ),
+              const VerticalDivider(width: 1, thickness: 1),
+              Expanded(child: content),
+            ],
+          )
+        : content;
 
     return Scaffold(
       backgroundColor: JobTrackColors.background,
@@ -669,17 +700,19 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: content,
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: currentIndex,
-        onTap: _selectTab,
-        selectedItemColor: JobTrackColors.blue,
-        unselectedItemColor: JobTrackColors.navyMuted,
-        backgroundColor: JobTrackColors.surface,
-        showUnselectedLabels: true,
-        items: bottomItems,
-      ),
+      body: body,
+      bottomNavigationBar: isWide
+          ? null
+          : BottomNavigationBar(
+              type: BottomNavigationBarType.fixed,
+              currentIndex: currentIndex,
+              onTap: _selectTab,
+              selectedItemColor: JobTrackColors.blue,
+              unselectedItemColor: JobTrackColors.navyMuted,
+              backgroundColor: JobTrackColors.surface,
+              showUnselectedLabels: true,
+              items: bottomItems,
+            ),
     );
   }
 }
